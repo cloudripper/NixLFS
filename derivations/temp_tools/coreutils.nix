@@ -1,9 +1,7 @@
 { pkgs, lfsSrcs, cc1 }:
 let
-  # nixpkgs = import <nixpkgs> {};
   nixpkgs = pkgs;
-  lib = nixpkgs.lib;
-  stdenv = nixpkgs.stdenv;
+  stdenvNoCC = nixpkgs.stdenvNoCC;
 
   nativePackages = with pkgs; [
     cmake
@@ -12,7 +10,7 @@ let
   ];
 
 
-  coreutilsPkg = stdenv.mkDerivation {
+  coreutilsPkg = stdenvNoCC.mkDerivation {
     name = "coreutils-LFS";
 
     src = pkgs.fetchurl {
@@ -28,12 +26,10 @@ let
       export LFS=$PWD
       export LFSTOOLS=$PWD/tools
       export LFS_TGT=$(uname -m)-lfs-linux-gnu
-      export PATH=$LFS/usr/bin:$PATH
-      export PATH=$LFSTOOLS/bin:$PATH
-      export PATH=${pkgs.coreutils}/bin:$PATH
+      export CONFIG_SITE=$LFS/usr/share/config.site
+      export PATH=$PATH:$LFS/usr/bin
+      export PATH=$PATH:$LFSTOOLS/bin
       export CC1=${cc1}
-      export CC=$LFS_TGT-gcc
-      export CXX=$LFS_TGT-g++
 
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS

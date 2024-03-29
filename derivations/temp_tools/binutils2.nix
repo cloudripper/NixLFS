@@ -1,9 +1,7 @@
 { pkgs, lfsSrcs, cc1 }:
 let
-  # nixpkgs = import <nixpkgs> {};
   nixpkgs = pkgs;
-  lib = nixpkgs.lib;
-  stdenv = nixpkgs.stdenv;
+  stdenvNoCC = nixpkgs.stdenvNoCC;
 
   nativePackages = with pkgs; [
     cmake
@@ -12,9 +10,7 @@ let
     bison
   ];
 
-  # Attributes for stdenv.mkDerivation can be found at:
-  # https://nixos.org/manual/nixpkgs/stable/#sec-tools-of-stdenv
-  binutils2Pkg = stdenv.mkDerivation {
+  binutils2Pkg = stdenvNoCC.mkDerivation {
     name = "binutils2-LFS";
 
     src = pkgs.fetchurl {
@@ -23,8 +19,7 @@ let
     };
 
     nativeBuildInputs = [ nativePackages ];
-    buildInputs = [ cc1 ];
-    depsBuildBuild = [ cc1 ];
+    buildInputs = [ cc1 pkgs.gcc ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -33,10 +28,8 @@ let
       export LFS_TGT=$(uname -m)-lfs-linux-gnu
       export PATH=$PATH:$LFS/usr/bin
       export PATH=$PATH:$LFSTOOLS/bin
-      export PATH=$PATH:$LFSTOOLS/$LFS_TGT/bin
+      export CONFIG_SITE=$LFS/usr/share/config.site
       export CC1=${cc1}
-      export CC=$LFS_TGT-gcc
-      export CXX=$LFS_TGT-g++
 
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS

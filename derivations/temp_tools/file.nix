@@ -1,9 +1,7 @@
 { pkgs, lfsSrcs, cc1 }:
 let
-  # nixpkgs = import <nixpkgs> {};
   nixpkgs = pkgs;
-  lib = nixpkgs.lib;
-  stdenv = nixpkgs.stdenv;
+  stdenvNoCC = nixpkgs.stdenvNoCC;
 
   nativePackages = with pkgs; [
     cmake
@@ -14,7 +12,7 @@ let
 
   # Attributes for stdenv.mkDerivation can be found at:
   # https://nixos.org/manual/nixpkgs/stable/#sec-tools-of-stdenv
-  filePkg = stdenv.mkDerivation {
+  filePkg = stdenvNoCC.mkDerivation {
     name = "file-LFS";
 
     src = pkgs.fetchurl {
@@ -23,16 +21,16 @@ let
     };
 
     nativeBuildInputs = [ nativePackages ];
-    buildInputs = [ cc1 ];
+    buildInputs = [ cc1 pkgs.gcc ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
       export LFS=$PWD
       export LFSTOOLS=$PWD/tools
       export LFS_TGT=$(uname -m)-lfs-linux-gnu
-      export PATH=$LFS/usr/bin:$PATH
-      export PATH=$LFSTOOLS/bin:$PATH
-      export PATH=${pkgs.coreutils}/bin:$PATH
+      export PATH=$PATH:$LFS/usr/bin
+      export PATH=$PATH:$LFSTOOLS/bin
+      export CONFIG_SITE=$LFS/usr/share/config.site
       export CC1=${cc1}
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS

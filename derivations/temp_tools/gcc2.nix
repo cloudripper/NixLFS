@@ -1,11 +1,9 @@
 { pkgs, lfsSrcs, cc1 }:
 
 let
-  lib = pkgs.lib;
   stdenv = pkgs.stdenv;
 
   nativePackages = with pkgs; [
-    cmake
     zlib
     bison
   ];
@@ -34,7 +32,7 @@ let
     ];
 
     nativeBuildInputs = [ nativePackages ];
-    buildInputs = [ cc1 ];
+    buildInputs = [ cc1 pkgs.binutils ];
 
     prePhases = "prepEnvironmentPhase";
 
@@ -43,11 +41,9 @@ let
       export LFSTOOLS=$PWD/tools
       export CC1=${cc1}
       export LFS_TGT=$(uname -m)-lfs-linux-gnu
-      export PATH=$CC1/usr/$LFS_TGT/bin:$PATH
-      export PATH=$CC1/tools/bin:$PATH
-      export PATH=$CC1/tools/$LFS_TGT/bin:$PATH
-      export CC=$LFS_TGT-gcc
-      export CXX=$LFS_TGT-g++
+      export PATH=$PATH:$LFS/usr/bin
+      export PATH=$PATH:$LFSTOOLS/bin
+      export CONFIG_SITE=$LFS/usr/share/config.site
  
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS
@@ -101,7 +97,7 @@ let
               --build=$(../config.guess)                  \
               --host=$LFS_TGT                             \
               --target=$LFS_TGT                           \
-              LDFLAGS_FOR_TARGET=-L$LFS/usr/$LFS_TGT/libgcc    \
+              LDFLAGS_FOR_TARGET=-L$PWD/$LFS_TGT/libgcc    \
               --with-build-sysroot=$LFS         \
               --enable-default-pie        \
               --enable-default-ssp        \
@@ -123,7 +119,7 @@ let
     postInstall = ''
       echo "Install complete."
             
-      ln -sv gcc $LFS/usr/bin/cc
+      cp -vr gcc $LFS/usr/bin/cc
       rm -r $LFS/$sourceRoot
       cp -rvp $LFS/* $out/
     '';

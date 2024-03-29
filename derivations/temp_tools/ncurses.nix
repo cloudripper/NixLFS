@@ -2,20 +2,18 @@
 let
   # nixpkgs = import <nixpkgs> {};
   nixpkgs = pkgs;
-  lib = nixpkgs.lib;
-  stdenv = nixpkgs.stdenv;
+  stdenvNoCC = nixpkgs.stdenvNoCC;
 
   nativePackages = with pkgs; [
     cmake
     zlib
     bison
     binutils
-    glibc
   ];
 
   # Attributes for stdenv.mkDerivation can be found at:
   # https://nixos.org/manual/nixpkgs/stable/#sec-tools-of-stdenv
-  ncursesPkg = stdenv.mkDerivation {
+  ncursesPkg = stdenvNoCC.mkDerivation {
     name = "ncurses-LFS";
 
     src = pkgs.fetchurl {
@@ -24,7 +22,7 @@ let
     };
 
     nativeBuildInputs = [ nativePackages ] ++ [ cc1 ];
-    buildInputs = [ cc1 ];
+    buildInputs = [ cc1 pkgs.gcc ];
 
 
     prePhases = "prepEnvironmentPhase";
@@ -32,10 +30,10 @@ let
       export LFS=$PWD
       export LFSTOOLS=$PWD/tools
       export LFS_TGT=$(uname -m)-lfs-linux-gnu
-      export PATH=$LFS/usr/bin:$PATH
+      export CONFIG_SITE=$LFS/usr/share/config.site
       export PATH=$LFSTOOLS/bin:$PATH
-      export CC1=${cc1}
-
+      export PATH=$LFS/usr/bin:$PATH
+      export CC1=${cc1} 
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS
     '';
@@ -43,16 +41,17 @@ let
     configurePhase = ''
       sed -i s/mawk// configure
       echo $(env | grep TGT)
+      echo $(env | grep LD_)
+      chmod -R u+w $LFS
     
       mkdir build
       pushd build 
-          ../configure            
+          ../configure 
           make -C include 
           make -C progs tic 
       popd
       export CC=$LFS_TGT-gcc
       export CXX=$LFS_TGT-g++
-
       ./configure --prefix=/usr        \
           --host=$LFS_TGT              \
           --build=$(./config.guess)    \
@@ -68,17 +67,14 @@ let
     '';
 
     installPhase = ''
-      runHook preInstall
-      export TIC_PATH=$LFS/$sourceRoot/build/progs/tic
-
-      make DESTDIR=$LFS install
+      make DESTDIR=$LFS install TIC_PATH=$(pwd)/build/progs/tic
           
       ln -sv $LFS/usr/lib/libncursesw.so $LFS/usr/lib/libncurses.so
 
       sed -e 's/^#if.*XOPEN.*$/#if 1/' \
           -i $LFS/usr/include/curses.h
 
-      runHook postInstall
+      runHook postInstall 
     '';
 
     postInstall = ''

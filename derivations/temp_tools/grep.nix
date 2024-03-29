@@ -2,8 +2,7 @@
 let
   # nixpkgs = import <nixpkgs> {};
   nixpkgs = pkgs;
-  lib = nixpkgs.lib;
-  stdenv = nixpkgs.stdenv;
+  stdenvNoCC = nixpkgs.stdenvNoCC;
 
   nativePackages = with pkgs; [
     cmake
@@ -12,9 +11,7 @@ let
     binutils
   ];
 
-  # Attributes for stdenv.mkDerivation can be found at:
-  # https://nixos.org/manual/nixpkgs/stable/#sec-tools-of-stdenv
-  grepPkg = stdenv.mkDerivation {
+  grepPkg = stdenvNoCC.mkDerivation {
     name = "grep-LFS";
 
     src = pkgs.fetchurl {
@@ -32,9 +29,8 @@ let
       export LFS_TGT=$(uname -m)-lfs-linux-gnu
       export PATH=$PATH:$LFS/usr/bin
       export PATH=$PATH:$LFSTOOLS/bin
+      export CONFIG_SITE=$LFS/usr/share/config.site
       export CC1=${cc1}
-      export CC=$LFS_TGT-gcc
-      export CXX=$LFS_TGT-g++
  
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS
