@@ -79,7 +79,7 @@
 "texinfo": "https://ftp.gnu.org/gnu/texinfo/texinfo-7.1.tar.xz",
 "tzdata2024a.tar.gz": "https://www.iana.org/time-zones/repository/releases/tzdata2024a.tar.gz",
 "udev": "https://anduin.linuxfromscratch.org/LFS/udev-lfs-20230818.tar.xz",
-"util": "https://www.kernel.org/pub/linux/utils/util-linux/v2.39/util-linux-2.39.3.tar.xz",
+"util-linux": "https://www.kernel.org/pub/linux/utils/util-linux/v2.39/util-linux-2.39.3.tar.xz",
 "vim": "https://github.com/vim/vim/archive/v9.1.0041/vim-9.1.0041.tar.gz",
 "wheel": "https://pypi.org/packages/source/w/wheel/wheel-0.42.0.tar.gz",
 "XML": "https://cpan.metacpan.org/authors/id/T/TO/TODDR/XML-Parser-2.47.tar.gz",

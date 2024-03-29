@@ -3,12 +3,6 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/f091af045dff8347d66d186a62d42aceff159456";
-    # nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
-    # nixpkgs = builtins.fetchTarball {
-    #     url = "https://github.com/NixOS/nixpkgs/archive/f091af045dff8347d66d186a62d42aceff159456.tar.gz";
-    #     sha256 = "1fnaizd2np0vx9d5018w18958pi06b5bh6qnx01lax13bb00icbw";
-    # };
-    # pkgs = import nixpkgs {};
   };
 
   outputs = { self, nixpkgs }:
@@ -43,8 +37,8 @@
       binutils2Stage = import ./derivations/temp_tools/binutils2.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc1 = xzStage; };
       gcc2Stage = import ./derivations/temp_tools/gcc2.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc1 = binutils2Stage; };
 
+      # FHS-compliant environment builds
       fhsPrep = import ./derivations/fhs/fhsprep.nix { pkgs = x86_pkgs; cc2 = gcc2Stage; };
-      # fhsStage = import ./derivations/fhs.nix { pkgs = x86_pkgs; cc2 = fhsPrep; };
       fhsBuildStage = import ./derivations/fhs/fhsbuild.nix { pkgs = x86_pkgs; cc2 = gcc2Stage; };
       fhsGetTextStage = import ./derivations/fhs/fhsgettext.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = fhsBuildStage; };
       fhsBisonStage = import ./derivations/fhs/fhsbison.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = fhsGetTextStage; };
