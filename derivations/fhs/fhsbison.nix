@@ -1,6 +1,5 @@
 { pkgs, lfsSrcs, cc2 }:
 let
-  lib = pkgs.lib;
   stdenvNoCC = pkgs.stdenvNoCC;
 
 
@@ -17,6 +16,11 @@ let
         gcc
         gnumake
         findutils
+        gzip
+        file
+        gnupatch
+        gnum4
+        texinfo
       ];
       inputBinsConcat = (builtins.concatStringsSep "/bin:" fhsBuildInputs) + "/bin";
     in
@@ -24,25 +28,25 @@ let
   );
 
   fhsEnv = stdenvNoCC.mkDerivation {
-    name = "fhs-gettext-env";
+    name = "fhs-bison-env";
 
     nativeBuildInputs = with pkgs; [
       cmake
       zlib
       bison
-      binutils
       coreutils
     ];
 
 
     src = builtins.fetchTarball {
-      url = lfsSrcs.gettext;
+      url = lfsSrcs.bison;
       sha256 = "1fnaizd2np0vx9d5018w18958pi06b5bh6qnx01lax13bb00icbw";
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -90,6 +94,7 @@ let
               "--bind $LFS/sbin /sbin"
               "--bind $LFS/bin /bin"
               "--bind $LFS/usr /usr"
+              "--bind $LFS/usr/bin /usr/bin"
               "--bind $LFS/usr/lib /usr/lib"
               "--bind $LFS/var /var"
               "--bind $LFS/etc /etc"
@@ -123,16 +128,15 @@ let
     '';
   };
 
-
   setupEnvScript = ''
     ln -sv ${pkgs.bash}/bin/bash /bin/sh
 
     cd /tmp/src
-    ./configure --disable-shared
+    ./configure --prefix=/usr --docdir=/usr/share/doc/bison-3.8.2 || exit 1
 
-    make
+    make || exit 1
 
-    cp -v gettext-tools/src/{msgfmt,msgmerge,xgettext} /usr/bin
+    make install || exit 1
 
     cp -pvr /usr $OUT/usr
     cp -pvr /opt $OUT/opt
