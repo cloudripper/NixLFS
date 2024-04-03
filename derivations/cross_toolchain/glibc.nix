@@ -68,13 +68,16 @@ let
 
     postInstall = ''
       sed '/RTLDLIST=/s@/usr@@g' -i $LFS/usr/bin/ldd           
+      
+      pushd $LFS/lib
       case $(uname -m) in
-          i?86)   ln -sfv $LFS/lib/ld-linux.so.2 $LFS/lib/ld-lsb.so.3
+          i?86)   ln -sfv ./ld-linux.so.2 ./ld-lsb.so.3
           ;;
-          x86_64) ln -sfv $LFS/lib/ld-linux-x86-64.so.2 $LFS/lib64
-                  ln -sfv $LFS/lib/ld-linux-x86-64.so.2 $LFS/lib64/ld-lsb-x86-64.so.3
+          x86_64) ln -sfv ./ld-linux-x86-64.so.2 ../lib64
+                  ln -sfv ./ld-linux-x86-64.so.2 ../lib64/ld-lsb-x86-64.so.3
           ;;
       esac
+      popd
 
       rm -r $LFS/$sourceRoot
       cp -rvp $LFS/* $out/

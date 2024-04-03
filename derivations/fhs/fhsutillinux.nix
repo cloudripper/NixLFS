@@ -1,52 +1,16 @@
-{ pkgs, lfsSrcs, cc2 }:
+{ pkgs, lfsSrcs, cc2, lib }:
 let
-  lib = pkgs.lib;
   stdenv = pkgs.stdenv;
-
-
-  fhsBinPaths = (
-    let
-      fhsBuildInputs = with pkgs; [
-        coreutils
-        gnugrep
-        bash
-        gawk
-        diffutils
-        cmake
-        gnused
-        gcc
-        gnumake
-        findutils
-        gzip
-        file
-        gnupatch
-        gnum4
-      ];
-      inputBinsConcat = (builtins.concatStringsSep "/bin:" fhsBuildInputs) + "/bin";
-    in
-    inputBinsConcat
-  );
 
   fhsEnv = stdenv.mkDerivation {
     name = "fhs-util-linux-env";
 
-    nativeBuildInputs = with pkgs; [
-      cmake
-      zlib
-      bison
-      coreutils
-    ];
-
-
     src = builtins.fetchTarball {
       url = lfsSrcs.util-linux;
-      sha256 = "1fnaizd2np0vx9d5018w18958pi06b5bh6qnx01lax13bb00icbw";
+      sha256 = "1y3dvbqn79hiy3j2a5phhdyn9zxx8621xybn1dg9zzl6in74156d";
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
-
-    buildInputs = [ cc2 ];
-
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -73,11 +37,21 @@ let
     '';
 
     buildPhase = ''
+      
       ${pkgs.buildFHSEnv { 
           name = "fhs";     
+
+        # This is necessary to override default /lib64 symlink set to /lib. 
+        # This symlink prevented binding LFS lib to FHS lib64. 
+        # see setupTargetProfile in buildFHSenv.nix
+        # LFS bin interpreter is set to /lib64, so this is important in order
+        # for LFS bins to function in FHS env.
+        extraBuildCommands = ''
+          rm lib64
+        '';
+        
           extraBwrapArgs = [
-              "--unshare-user"
-              "--unshare-uts"
+              "--unshare-all"
               "--hostname lfs-bwap"
               "--uid 0"
               "--gid 0"
@@ -86,7 +60,9 @@ let
               "--tmpfs /run"
               "--tmpfs /dev/shm"
               "--dir /tmp/out"
-              "--bind $LFS/lib /lib"
+              "--dir /tmp/bin"
+              "--bind $LFS/usr/lib /lib"
+              "--bind $LFS/usr/lib /lib64"
               "--bind $LFS/root /root"
               "--bind $LFS/tools /tools"
               "--bind $LFS/media /media"
@@ -97,15 +73,15 @@ let
               "--bind $LFS/var /var"
               "--bind $LFS/etc /etc"
               "--bind $LFS/home /home"
-              "--bind $out /tmpfout"
+              "--bind $out /tmp/out"
               "--bind $LFS/tmp/src /tmp/src"
               "--clearenv"
               "--setenv HOME /root"
-              "--setenv PATH ${fhsBinPaths}:/usr/bin:/usr/sbin:/usr/tools/bin"
+              "--setenv PATH /usr/bin:/usr/sbin"
               "--setenv OUT /tmp/out"
               "--setenv SRC /tmp/src"
               "--setenv CONFIG_SITE $LFS/usr/share/config.site"
-          ];
+               ];
       }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
     '';
 
@@ -127,10 +103,11 @@ let
   };
 
   setupEnvScript = ''
-    ln -sv ${pkgs.bash}/bin/bash /bin/sh
-
     cd /tmp/src
-    ./configure --prefix=/usr \
+
+    # disable-use-tty-group is set due to mkderiv/bwrap chgrp challenge
+    # disable-makeinstall-setuid for same reason
+    ./configure --libdir=/usr/lib \
                 --runstatedir=/run \
                 --disable-chfn-chsh \
                 --disable-login \
@@ -143,25 +120,31 @@ let
                 --without-python \
                 ADJTIME_PATH=/var/lib/hwclock/adjtime \
                 --docdir=/usr/share/doc/util-linux-2.39.3 \
-                || exit 1
+                --disable-use-tty-group \
+                --disable-makeinstall-setuid \
+               || exit 1
 
     make || exit 1
 
     make install || exit 1
 
-    cp -pvr /usr $OUT/usr
-    cp -pvr /opt $OUT/opt
-    cp -pvr /srv $OUT/srv
-    cp -pvr /boot $OUT/boot
-    cp -pvr /home $OUT/home
-    cp -pvr /sbin $OUT/sbin
-    cp -pvr /root $OUT/root
-    cp -pvr /etc $OUT/etc
-    cp -pvr /lib $OUT/lib
-    cp -pvr /var $OUT/var
-    cp -pvr /bin $OUT/bin
-    cp -pvr /tools $OUT/tools
-    cp -pvr /media $OUT/media
+    rm -rf /usr/share/{info,man,doc}/*
+    find /usr/{lib,libexec} -name \*.la -delete
+    rm -rf /tools
+    
+    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media}
+    cp -pvr /usr/* $OUT/usr
+    cp -pvr /opt/* $OUT/opt
+    cp -pvr /srv/* $OUT/srv
+    cp -pvr /boot/* $OUT/boot
+    cp -pvr /home/* $OUT/home
+    cp -pvr /sbin/* $OUT/sbin
+    cp -pvr /root/* $OUT/root
+    cp -pvr /etc/* $OUT/etc
+    cp -pvr /lib/* $OUT/lib
+    cp -pvr /var/* $OUT/var
+    cp -pvr /bin/* $OUT/bin
+    cp -pvr /media/* $OUT/media
   '';
 in
 fhsEnv

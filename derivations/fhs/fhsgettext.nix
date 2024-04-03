@@ -1,27 +1,7 @@
 { pkgs, lfsSrcs, cc2 }:
 let
-  lib = pkgs.lib;
   stdenvNoCC = pkgs.stdenvNoCC;
 
-
-  fhsBinPaths = (
-    let
-      fhsBuildInputs = with pkgs; [
-        coreutils
-        gnugrep
-        bash
-        gawk
-        diffutils
-        cmake
-        gnused
-        gcc
-        gnumake
-        findutils
-      ];
-      inputBinsConcat = (builtins.concatStringsSep "/bin:" fhsBuildInputs) + "/bin";
-    in
-    inputBinsConcat
-  );
 
   fhsEnv = stdenvNoCC.mkDerivation {
     name = "fhs-gettext-env";
@@ -71,6 +51,16 @@ let
     buildPhase = ''
       ${pkgs.buildFHSEnv { 
           name = "fhs";     
+        
+        # This is necessary to override default /lib64 symlink set to /lib. 
+        # This symlink prevented binding LFS lib to FHS lib64. 
+        # see setupTargetProfile in buildFHSenv.nix
+        # LFS bin interpreter is set to /lib64, so this is important in order
+        # for LFS bins to function in FHS env.
+         extraBuildCommands = ''
+          rm lib64
+        '';
+        
           extraBwrapArgs = [
               "--unshare-user"
               "--unshare-uts"
@@ -98,7 +88,7 @@ let
               "--bind $LFS/tmp/src /tmp/src"
               "--clearenv"
               "--setenv HOME /root"
-              "--setenv PATH ${fhsBinPaths}:/usr/bin:/usr/sbin:/usr/tools/bin"
+              "--setenv PATH /usr/bin:/usr/sbin"
               "--setenv OUT /tmp/out"
               "--setenv SRC /tmp/src"
               "--setenv CONFIG_SITE $LFS/usr/share/config.site"
@@ -133,20 +123,20 @@ let
     make
 
     cp -v gettext-tools/src/{msgfmt,msgmerge,xgettext} /usr/bin
-
-    cp -pvr /usr $OUT/usr
-    cp -pvr /opt $OUT/opt
-    cp -pvr /srv $OUT/srv
-    cp -pvr /boot $OUT/boot
-    cp -pvr /home $OUT/home
-    cp -pvr /sbin $OUT/sbin
-    cp -pvr /root $OUT/root
-    cp -pvr /etc $OUT/etc
-    cp -pvr /lib $OUT/lib
-    cp -pvr /var $OUT/var
-    cp -pvr /bin $OUT/bin
-    cp -pvr /tools $OUT/tools
-    cp -pvr /media $OUT/media
+    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media}
+    cp -pvr /usr/* $OUT/usr
+    cp -pvr /opt/* $OUT/opt
+    cp -pvr /srv/* $OUT/srv
+    cp -pvr /boot/* $OUT/boot
+    cp -pvr /home/* $OUT/home
+    cp -pvr /sbin/* $OUT/sbin
+    cp -pvr /root/* $OUT/root
+    cp -pvr /etc/* $OUT/etc
+    cp -pvr /lib/* $OUT/lib
+    cp -pvr /var/* $OUT/var
+    cp -pvr /bin/* $OUT/bin
+    cp -pvr /tools/* $OUT/tools
+    cp -pvr /media/* $OUT/media
   '';
 in
 fhsEnv

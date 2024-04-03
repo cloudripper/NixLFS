@@ -2,18 +2,6 @@
 let
   stdenvNoCC = pkgs.stdenvNoCC;
 
-  fhsBinPaths = (
-    let
-      fhsBuildInputs = with pkgs; [
-        coreutils
-        gnugrep
-        bash
-      ];
-      inputBinsConcat = (builtins.concatStringsSep "/bin:" fhsBuildInputs) + "/bin";
-    in
-    inputBinsConcat
-  );
-
   fhsEnv = stdenvNoCC.mkDerivation {
     name = "fhs-env";
     phases = [ "prepEnvironmentPhase" "configurePhase" "buildPhase" ];
@@ -63,7 +51,17 @@ let
 
     buildPhase = ''
       ${pkgs.buildFHSEnv { 
-         name = "fhs";     
+         name = "fhs";
+
+        # This is necessary to override default /lib64 symlink set to /lib. 
+        # This symlink prevented binding LFS lib to FHS lib64. 
+        # see setupTargetProfile in buildFHSenv.nix
+        # LFS bin interpreter is set to /lib64, so this is important in order
+        # for LFS bins to function in FHS env.
+         extraBuildCommands = ''
+          rm lib64
+        '';
+             
          extraBwrapArgs = [
             "--unshare-user"
             "--unshare-uts"
@@ -76,8 +74,8 @@ let
             "--tmpfs /dev/shm"
             "--dir /out"
             "--bind $LFS/usr/bin /usr/bin"
-            "--bind $LFS/lib /lib"
-            "--bind $LFS/lib64 /lib64"
+            "--bind $LFS/usr/lib /lib"
+            "--bind $LFS/usr/lib /lib64"
             "--bind $LFS/root /root"
             "--bind $LFS/tools /tools"
             "--bind $LFS/media /media"
@@ -91,7 +89,6 @@ let
             "--clearenv"
             "--setenv HOME /root"
             "--setenv PATH /usr/bin:/usr/sbin:/usr/tools/bin"
-            "--setenv PATH ${fhsBinPaths}:$PATH"
             "--setenv OUT /out"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
           ];
@@ -119,19 +116,19 @@ let
 
   # FHS Env bash script
   setupEnvScript = ''
-        chmod u+w /*
-        install -dv -m 0750 /root
-        install -dv -m 1777 /tmp /var/tmp
+      chmod u+w /*
+      install -dv -m 0750 /root
+      install -dv -m 1777 /tmp /var/tmp
 
-        ln -sv /proc/self/mounts /etc/mtab
+      ln -sv /proc/self/mounts /etc/mtab
 
-    # helix-ignore-start
-    cat > /etc/hosts << "EOF"
+            # helix-ignore-start
+      cat > /etc/hosts << "EOF"
     127.0.0.1  localhost $(hostname)
     ::1        localhost
     EOF
 
-    cat > /etc/passwd << "EOF"
+      cat > /etc/passwd << "EOF"
     root:x:0:0:root:/root:/bin/bash
     bin:x:1:1:bin:/dev/null:/usr/bin/false
     daemon:x:6:6:Daemon User:/dev/null:/usr/bin/false
@@ -147,8 +144,8 @@ let
     systemd-oom:x:81:81:systemd Out Of Memory Daemon:/:/usr/bin/false
     nobody:x:65534:65534:Unprivileged User:/dev/null:/usr/bin/false
     EOF
-    # helix-ignore-end
-    cat > /etc/group << "EOF"
+      # helix-ignore-end
+      cat > /etc/group << "EOF"
     root:x:0:
     bin:x:1:daemon
     sys:x:2:
@@ -184,38 +181,38 @@ let
     nogroup:x:65534:
     EOF
 
-                    # Come back to this section after system is assembled and before transfering to mnt
+      # Come back to this section after system is assembled and before transfering to mnt
 
-                    # echo "tester:x:101:101::/home/tester:/bin/bash" >> /etc/passwd
-                    # echo "tester:x:101:" >> /etc/group
-                    # echo $(ls)
-                    # mkdir /home/tester
-                    # useradd tester
-                    # # chown tester:tester /home/tester
-                    # install -o tester -d /home/tester
+      # echo "tester:x:101:101::/home/tester:/bin/bash" >> /etc/passwd
+      # echo "tester:x:101:" >> /etc/group
+      # echo $(ls)
+      # mkdir /home/tester
+      # useradd tester
+      # # chown tester:tester /home/tester
+      # install -o tester -d /home/tester
 
-                    touch /var/log/btmp
-                    touch /var/log/lastlog
-                    touch /var/log/faillog
-                    touch /var/log/wtmp   
-                    # echo $(ls /var/log)
-                    # come back to this after assembly 
-                    # chgrp -v utmp /var/log/lastlog
-                    chmod -v 664 /var/log/lastlog
-                    chmod -v 600 /var/log/btmp
+      touch /var/log/btmp
+      touch /var/log/lastlog
+      touch /var/log/faillog
+      touch /var/log/wtmp   
+      # echo $(ls /var/log)
+      # come back to this after assembly 
+      # chgrp -v utmp /var/log/lastlog
+      chmod -v 664 /var/log/lastlog
+      chmod -v 600 /var/log/btmp
 
-                    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media}
-                    cp -pvr /usr/* $OUT/usr
-                    cp -pvr /opt/* $OUT/opt
-                    cp -pvr /srv/* $OUT/srv
-                    cp -pvr /tmp/* $OUT/tmp
-                    cp -pvr /sbin/* $OUT/sbin
-                    cp -pvr /etc/* $OUT/etc
-                    cp -pvr /lib/* $OUT/lib
-                    cp -pvr /var/* $OUT/var
-                    cp -pvr /bin/* $OUT/bin
-                    cp -pvr /tools/* $OUT/tools
-                    cp -pvr /media/* $OUT/media
+      mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media}
+      cp -pvr /usr/* $OUT/usr
+      cp -pvr /opt/* $OUT/opt
+      cp -pvr /srv/* $OUT/srv
+      cp -pvr /tmp/* $OUT/tmp
+      cp -pvr /sbin/* $OUT/sbin
+      cp -pvr /etc/* $OUT/etc
+      cp -pvr /lib/* $OUT/lib
+      cp -pvr /var/* $OUT/var
+      cp -pvr /bin/* $OUT/bin
+      cp -pvr /tools/* $OUT/tools
+      cp -pvr /media/* $OUT/media
   '';
 in
 fhsEnv

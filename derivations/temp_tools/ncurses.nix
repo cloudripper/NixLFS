@@ -68,9 +68,10 @@ let
 
     installPhase = ''
       make DESTDIR=$LFS install TIC_PATH=$(pwd)/build/progs/tic
-          
-      ln -sv $LFS/usr/lib/libncursesw.so $LFS/usr/lib/libncurses.so
-
+      
+      pushd $LFS/usr/lib
+      ln -sv ./libncursesw.so ./libncurses.so
+      popd 
       sed -e 's/^#if.*XOPEN.*$/#if 1/' \
           -i $LFS/usr/include/curses.h
 

@@ -1,31 +1,7 @@
-{ pkgs, lfsSrcs, cc2 }:
+{ pkgs, lfsSrcs, cc2, lib }:
 let
   lib = pkgs.lib;
   stdenv = pkgs.stdenv;
-
-
-  fhsBinPaths = (
-    let
-      fhsBuildInputs = with pkgs; [
-        coreutils
-        gnugrep
-        bash
-        gawk
-        diffutils
-        cmake
-        gnused
-        gcc
-        gnumake
-        findutils
-        gzip
-        file
-        gnupatch
-        gnum4
-      ];
-      inputBinsConcat = (builtins.concatStringsSep "/bin:" fhsBuildInputs) + "/bin";
-    in
-    inputBinsConcat
-  );
 
   fhsEnv = stdenv.mkDerivation {
     name = "fhs-texinfo-env";
@@ -40,7 +16,7 @@ let
 
     src = builtins.fetchTarball {
       url = lfsSrcs.texinfo;
-      sha256 = "1fnaizd2np0vx9d5018w18958pi06b5bh6qnx01lax13bb00icbw";
+      sha256 = "045aswlbs2n367k1n3xga6gh7bmjq5mkw8yd3zz3w8cxb0zkk16b";
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
@@ -75,6 +51,16 @@ let
     buildPhase = ''
       ${pkgs.buildFHSEnv { 
           name = "fhs";     
+
+        # This is necessary to override default /lib64 symlink set to /lib. 
+        # This symlink prevented binding LFS lib to FHS lib64. 
+        # see setupTargetProfile in buildFHSenv.nix
+        # LFS bin interpreter is set to /lib64, so this is important in order
+        # for LFS bins to function in FHS env.
+         extraBuildCommands = ''
+          rm lib64
+        '';
+             
           extraBwrapArgs = [
               "--unshare-user"
               "--unshare-uts"
@@ -86,14 +72,14 @@ let
               "--tmpfs /run"
               "--tmpfs /dev/shm"
               "--dir /tmp/out"
-              "--bind $LFS/lib /lib"
+              "--bind $LFS/usr/lib /lib"
+              "--bind $LFS/usr/lib /lib64"
               "--bind $LFS/root /root"
               "--bind $LFS/tools /tools"
               "--bind $LFS/media /media"
               "--bind $LFS/sbin /sbin"
               "--bind $LFS/bin /bin"
               "--bind $LFS/usr /usr"
-              "--bind $LFS/usr/lib /usr/lib"
               "--bind $LFS/var /var"
               "--bind $LFS/etc /etc"
               "--bind $LFS/home /home"
@@ -101,7 +87,7 @@ let
               "--bind $LFS/tmp/src /tmp/src"
               "--clearenv"
               "--setenv HOME /root"
-              "--setenv PATH ${fhsBinPaths}:/usr/bin:/usr/sbin:/usr/tools/bin"
+              "--setenv PATH /usr/bin:/usr/sbin"
               "--setenv OUT /tmp/out"
               "--setenv SRC /tmp/src"
               "--setenv CONFIG_SITE $LFS/usr/share/config.site"
@@ -128,8 +114,6 @@ let
   };
 
   setupEnvScript = ''
-    ln -sv ${pkgs.bash}/bin/bash /bin/sh
-
     cd /tmp/src
     ./configure --prefix=/usr || exit 1
 

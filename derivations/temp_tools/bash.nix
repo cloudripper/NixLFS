@@ -49,7 +49,11 @@ let
 
     postInstall = ''
       mkdir $LFS/bin
-      ln -sv bash $LFS/bin/sh
+
+      pushd $LFS/usr
+      ln -sv ./bin/bash ../bin/sh
+      popd
+
       rm -r $LFS/$sourceRoot
       cp -rvp $LFS/* $out/
     '';

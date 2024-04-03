@@ -1,35 +1,8 @@
 { pkgs, lfsSrcs, cc2 }:
 let
-  lib = pkgs.lib;
-  stdenv = pkgs.stdenv;
+  stdenvNoCC = pkgs.stdenvNoCC;
 
-
-  fhsBinPaths = (
-    let
-      fhsBuildInputs = with pkgs; [
-        coreutils
-        gnugrep
-        bash
-        gawk
-        diffutils
-        cmake
-        gnused
-        gcc
-        gnumake
-        findutils
-        gzip
-        file
-        gnupatch
-        gnum4
-        texinfo
-        gettext
-      ];
-      inputBinsConcat = (builtins.concatStringsSep "/bin:" fhsBuildInputs) + "/bin";
-    in
-    inputBinsConcat
-  );
-
-  fhsEnv = stdenv.mkDerivation {
+  fhsEnv = stdenvNoCC.mkDerivation {
     name = "fhs-perl-env";
 
     nativeBuildInputs = with pkgs; [
@@ -37,12 +10,15 @@ let
       zlib
       bison
       coreutils
+      findutils
+      strace
+      file
     ];
 
 
     src = builtins.fetchTarball {
       url = lfsSrcs.perl;
-      sha256 = "1fnaizd2np0vx9d5018w18958pi06b5bh6qnx01lax13bb00icbw";
+      sha256 = "1ddz3rqimsrlhzp786hg0z9yldj2866mckbkkgz0181yasdivwad";
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
@@ -64,23 +40,36 @@ let
       chmod -R u+w $LFS
     '';
 
+
     configurePhase = ''
       export SRC=$PWD
+
       # Output directory
       mkdir $out
       # src folder
       mkdir -pv $LFS/tmp/src
 
       cp -rpv $SRC/* $LFS/tmp/src
+      cp -rpv $SRC/.* $LFS/tmp/src    
     '';
 
     buildPhase = ''
       ${pkgs.buildFHSEnv { 
           name = "fhs";     
+          
+        # This is necessary to override default /lib64 symlink set to /lib. 
+        # This symlink prevented binding LFS lib to FHS lib64. 
+        # see setupTargetProfile in buildFHSenv.nix
+        # LFS bin interpreter is set to /lib64, so this is important in order
+        # for LFS bins to function in FHS env.
+         extraBuildCommands = ''
+          rm lib64
+        '';
+        
           extraBwrapArgs = [
               "--unshare-user"
               "--unshare-uts"
-              "--hostname lfs-bwap"
+              "--hostname lfs-bwrap"
               "--uid 0"
               "--gid 0"
               "--chdir /"
@@ -104,7 +93,7 @@ let
               "--bind $LFS/tmp/src /tmp/src"
               "--clearenv"
               "--setenv HOME /root"
-              "--setenv PATH ${fhsBinPaths}:/usr/bin:/usr/sbin:/usr/tools/bin"
+              "--setenv PATH /usr/bin:/usr/sbin"
               "--setenv OUT /tmp/out"
               "--setenv SRC /tmp/src"
               "--setenv CONFIG_SITE $LFS/usr/share/config.site"
@@ -122,48 +111,47 @@ let
 
       eval "$prepEnvironmentPhase"
       eval "$unpackPhase"
-      eval "$configurePhase"
-      eval "$buildPhase"
+      # eval "$configurePhase"
+      # eval "$buildPhase"
       echo -e "\033[36mNix Develop -> $name: Loaded.\033[0m"
       echo -e "\033[36mNix Develop -> Current directory: $(pwd)\033[0m"
     '';
   };
 
-  setupEnvScript = ''
-    # ln -sv ${pkgs.bash}/bin/bash /bin/sh
-
+  setupEnvScript = ''  
     cd /tmp/src
-    echo $(ls)
-    echo $(ls build-aux)
-    sh ./Configure -des \
-               -Dprefix=/usr \
-               -Dvendorprefix=/usr \
-               -Duseshrplib \
-               -Dprivlib=/usr/lib/perl5/5.38/core_perl \
-               -Darchlib=/usr/lib/perl5/5.38/core_perl \
-               -Dsitelib=/usr/lib/perl5/5.38/site_perl \
-               -Dsitearch=/usr/lib/perl5/5.38/site_perl \
-               -Dvendorlib=/usr/lib/perl5/5.38/vendor_perl \
-               -Dvendorarch=/usr/lib/perl5/5.38/vendor_perl \
-               || exit 1
-
-    make || exit 1
-
+    
+    sh Configure -des \
+      -Dprefix=/usr \
+      -Dvendorprefix=/usr \
+      -Duseshrplib \
+      -Dprivlib=/usr/lib/perl5/5.38/core_perl \
+      -Darchlib=/usr/lib/perl5/5.38/core_perl \
+      -Dsitelib=/usr/lib/perl5/5.38/site_perl \
+      -Dsitearch=/usr/lib/perl5/5.38/site_perl \
+      -Dvendorlib=/usr/lib/perl5/5.38/vendor_perl \
+      -Dvendorarch=/usr/lib/perl5/5.38/vendor_perl \
+      -Dcc=gcc \
+      || exit 1    
+    # cp -pvr ./ $OUT/home
+    # exit 0
+    LDLOADLIBS=-lc make || exit 1
     make install || exit 1
-
-    cp -pvr /usr $OUT/usr
-    cp -pvr /opt $OUT/opt
-    cp -pvr /srv $OUT/srv
-    cp -pvr /boot $OUT/boot
-    cp -pvr /home $OUT/home
-    cp -pvr /sbin $OUT/sbin
-    cp -pvr /root $OUT/root
-    cp -pvr /etc $OUT/etc
-    cp -pvr /lib $OUT/lib
-    cp -pvr /var $OUT/var
-    cp -pvr /bin $OUT/bin
-    cp -pvr /tools $OUT/tools
-    cp -pvr /media $OUT/media
+    
+    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media}
+    cp -pvr /usr/* $OUT/usr
+    cp -pvr /opt/* $OUT/opt
+    cp -pvr /srv/* $OUT/srv
+    cp -pvr /boot/* $OUT/boot
+    cp -pvr /home/* $OUT/home
+    cp -pvr /sbin/* $OUT/sbin
+    cp -pvr /root/* $OUT/root
+    cp -pvr /etc/* $OUT/etc
+    cp -pvr /lib/* $OUT/lib
+    cp -pvr /var/* $OUT/var
+    cp -pvr /bin/* $OUT/bin
+    cp -pvr /tools/* $OUT/tools
+    cp -pvr /media/* $OUT/media
   '';
 in
 fhsEnv

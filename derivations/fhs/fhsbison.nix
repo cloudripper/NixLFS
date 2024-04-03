@@ -2,31 +2,6 @@
 let
   stdenvNoCC = pkgs.stdenvNoCC;
 
-
-  fhsBinPaths = (
-    let
-      fhsBuildInputs = with pkgs; [
-        coreutils
-        gnugrep
-        bash
-        gawk
-        diffutils
-        cmake
-        gnused
-        gcc
-        gnumake
-        findutils
-        gzip
-        file
-        gnupatch
-        gnum4
-        texinfo
-      ];
-      inputBinsConcat = (builtins.concatStringsSep "/bin:" fhsBuildInputs) + "/bin";
-    in
-    inputBinsConcat
-  );
-
   fhsEnv = stdenvNoCC.mkDerivation {
     name = "fhs-bison-env";
 
@@ -40,8 +15,9 @@ let
 
     src = builtins.fetchTarball {
       url = lfsSrcs.bison;
-      sha256 = "1fnaizd2np0vx9d5018w18958pi06b5bh6qnx01lax13bb00icbw";
+      sha256 = "0w18vf97c1kddc52ljb2x82rsn9k3mffz3acqybhcjfl2l6apn59";
     };
+
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
@@ -74,7 +50,17 @@ let
 
     buildPhase = ''
       ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+          name = "fhs";  
+             
+        # This is necessary to override default /lib64 symlink set to /lib. 
+        # This symlink prevented binding LFS lib to FHS lib64. 
+        # see setupTargetProfile in buildFHSenv.nix
+        # LFS bin interpreter is set to /lib64, so this is important in order
+        # for LFS bins to function in FHS env.
+         extraBuildCommands = ''
+          rm lib64
+        '';
+             
           extraBwrapArgs = [
               "--unshare-user"
               "--unshare-uts"
@@ -103,7 +89,7 @@ let
               "--bind $LFS/tmp/src /tmp/src"
               "--clearenv"
               "--setenv HOME /root"
-              "--setenv PATH ${fhsBinPaths}:/usr/bin:/usr/sbin:/usr/tools/bin"
+              "--setenv PATH /usr/bin:/usr/sbin"
               "--setenv OUT /tmp/out"
               "--setenv SRC /tmp/src"
               "--setenv CONFIG_SITE $LFS/usr/share/config.site"
