@@ -77,6 +77,7 @@ let
               "--tmpfs /run"
               "--tmpfs /dev/shm"
               "--dir /tmp/out"
+              "--dir /build_tools"
               "--bind $LFS/lib /lib"
               "--bind $LFS/lib /lib64"
               "--bind $LFS/root /root"
@@ -89,6 +90,7 @@ let
               "--bind $LFS/var /var"
               "--bind $LFS/etc /etc"
               "--bind $LFS/home /home"
+              "--bind $LFS/build_tools /build_tools"
               "--bind $out /tmp/out"
               "--bind $LFS/tmp/src /tmp/src"
               "--clearenv"
@@ -119,6 +121,8 @@ let
   };
 
   setupEnvScript = ''  
+    export PATH=/build_tools/bin:$PATH
+    set -e 
     cd /tmp/src
     
     sh Configure -des \
@@ -131,14 +135,14 @@ let
       -Dsitearch=/usr/lib/perl5/5.38/site_perl \
       -Dvendorlib=/usr/lib/perl5/5.38/vendor_perl \
       -Dvendorarch=/usr/lib/perl5/5.38/vendor_perl \
-      -Dcc=gcc \
-      || exit 1    
-    # cp -pvr ./ $OUT/home
-    # exit 0
-    LDLOADLIBS=-lc make || exit 1
-    make install || exit 1
+      -Dcc=gcc 
+          
+    LDLOADLIBS=-lc make 
+    make install 
+
+    set +e
     
-    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media}
+    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
     cp -pvr /usr/* $OUT/usr
     cp -pvr /opt/* $OUT/opt
     cp -pvr /srv/* $OUT/srv
@@ -152,6 +156,7 @@ let
     cp -pvr /bin/* $OUT/bin
     cp -pvr /tools/* $OUT/tools
     cp -pvr /media/* $OUT/media
+    cp -pvr /build_tools/* $OUT/build_tools
   '';
 in
 fhsEnv

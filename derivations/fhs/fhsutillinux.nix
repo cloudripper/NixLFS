@@ -60,6 +60,7 @@ let
               "--tmpfs /run"
               "--tmpfs /dev/shm"
               "--dir /tmp/out"
+              "--dir /build_tools"
               "--dir /tmp/bin"
               "--bind $LFS/usr/lib /lib"
               "--bind $LFS/usr/lib /lib64"
@@ -73,6 +74,7 @@ let
               "--bind $LFS/var /var"
               "--bind $LFS/etc /etc"
               "--bind $LFS/home /home"
+              "--bind $LFS/build_tools /build_tools"
               "--bind $out /tmp/out"
               "--bind $LFS/tmp/src /tmp/src"
               "--clearenv"
@@ -103,6 +105,7 @@ let
   };
 
   setupEnvScript = ''
+    export PATH=/build_tools/bin:$PATH
     cd /tmp/src
 
     # disable-use-tty-group is set due to mkderiv/bwrap chgrp challenge
@@ -120,8 +123,6 @@ let
                 --without-python \
                 ADJTIME_PATH=/var/lib/hwclock/adjtime \
                 --docdir=/usr/share/doc/util-linux-2.39.3 \
-                --disable-use-tty-group \
-                --disable-makeinstall-setuid \
                || exit 1
 
     make || exit 1
@@ -132,7 +133,7 @@ let
     find /usr/{lib,libexec} -name \*.la -delete
     rm -rf /tools
     
-    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media}
+    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
     cp -pvr /usr/* $OUT/usr
     cp -pvr /opt/* $OUT/opt
     cp -pvr /srv/* $OUT/srv
@@ -145,6 +146,7 @@ let
     cp -pvr /var/* $OUT/var
     cp -pvr /bin/* $OUT/bin
     cp -pvr /media/* $OUT/media
+    cp -pvr /build_tools/* $OUT/build_tools
   '';
 in
 fhsEnv

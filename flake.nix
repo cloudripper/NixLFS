@@ -76,6 +76,7 @@
       ssExpectStage = import ./derivations/sys_software/ssexpect.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssTclStage; lib = nixpkgs.lib; };
       ssDejagnuStage = import ./derivations/sys_software/ssdejagnu.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssExpectStage; lib = nixpkgs.lib; };
       ssPkgconfStage = import ./derivations/sys_software/sspkgconf.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssDejagnuStage; lib = nixpkgs.lib; };
+      ssBinutilsStage = import ./derivations/sys_software/ssbinutils.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssPkgconfStage; lib = nixpkgs.lib; };
       ssGmpStage = import ./derivations/sys_software/ssgmp.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssPkgconfStage; lib = nixpkgs.lib; };
       ssMpfrStage = import ./derivations/sys_software/ssmpfr.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssGmpStage; lib = nixpkgs.lib; };
       ssMpcStage = import ./derivations/sys_software/ssmpc.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssMpfrStage; lib = nixpkgs.lib; };
@@ -119,9 +120,12 @@
       ssGawkStage = import ./derivations/sys_software/ssgawk.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssDiffutilsStage; lib = nixpkgs.lib; };
       ssFindutilsStage = import ./derivations/sys_software/ssfindutils.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssGawkStage; lib = nixpkgs.lib; };
       ssGroffStage = import ./derivations/sys_software/ssgroff.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssFindutilsStage; lib = nixpkgs.lib; };
-      ssGrubStage = import ./derivations/sys_software/ssgrub.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssGroffStage; lib = nixpkgs.lib; };
-      ssOprouteStage = import ./derivations/sys_software/ssoproute.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssGrubStage; lib = nixpkgs.lib; };
-      ssKbdStage = import ./derivations/sys_software/sskbd.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssOprouteStage; lib = nixpkgs.lib; };
+      # UEFI Grub install from BLFS requires Freetype dependency. Adding Freetype 2 build
+      ssFreetype = import ./derivations/sys_software/ssfreetype-blfs.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssGroffStage; lib = nixpkgs.lib; };
+      # Proceeding with Grub UEFI (BLFS) build variation. 
+      ssGrubStage = import ./derivations/sys_software/ssgrub.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssFreetype; lib = nixpkgs.lib; };
+      ssIprouteStage = import ./derivations/sys_software/ssiproute.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssGrubStage; lib = nixpkgs.lib; };
+      ssKbdStage = import ./derivations/sys_software/sskbd.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssIprouteStage; lib = nixpkgs.lib; };
       ssLibpipelineStage = import ./derivations/sys_software/sslibpipeline.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssKbdStage; lib = nixpkgs.lib; };
       ssMakeStage = import ./derivations/sys_software/ssmake.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssLibpipelineStage; lib = nixpkgs.lib; };
       ssPatchStage = import ./derivations/sys_software/sspatch.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssMakeStage; lib = nixpkgs.lib; };
@@ -135,9 +139,9 @@
       ssMandbStage = import ./derivations/sys_software/ssmandb.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssDbusStage; lib = nixpkgs.lib; };
       ssProcpsStage = import ./derivations/sys_software/ssprocps.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssMandbStage; lib = nixpkgs.lib; };
       ssUtillinuxStage = import ./derivations/sys_software/ssutillinux.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssProcpsStage; lib = nixpkgs.lib; };
-      ssE2FsprogsiStage = import ./derivations/sys_software/sse2fsprogsi.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssUtillinuxStage; lib = nixpkgs.lib; };
-
-
+      ssE2FsprogsStage = import ./derivations/sys_software/sse2fsprogs.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssUtillinuxStage; lib = nixpkgs.lib; };
+      sysConfStage = import ./derivations/sys_conf/sys_conf.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = ssE2FsprogsStage; lib = nixpkgs.lib; };
+      linuxKernelStage = import ./derivations/sys_conf/linuxkernel.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = sysConfStage; lib = nixpkgs.lib; };
     in
     {
       packages.x86_64-linux.crossToolchain = {
@@ -185,7 +189,7 @@
       };
 
       packages.x86_64-linux.ss = {
-        default = ssE2FsprogsiStage;
+        default = ssE2FsprogsStage;
         manpages = ssManpagesStage;
         iana = ssIanaStage;
         glibc = ssGlibcStage;
@@ -203,6 +207,7 @@
         expect = ssExpectStage;
         dejagnu = ssDejagnuStage;
         pkgconf = ssPkgconfStage;
+        binutils = ssBinutilsStage;
         gmp = ssGmpStage;
         mpfr = ssMpfrStage;
         mpc = ssMpcStage;
@@ -247,7 +252,7 @@
         findutils = ssFindutilsStage;
         groff = ssGroffStage;
         grub = ssGrubStage;
-        oproute = ssOprouteStage;
+        iproute = ssIprouteStage;
         kbd = ssKbdStage;
         libpipeline = ssLibpipelineStage;
         make = ssMakeStage;
@@ -262,11 +267,16 @@
         mandb = ssMandbStage;
         procps = ssProcpsStage;
         utillinux = ssUtillinuxStage;
-        e2fsprogsi = ssE2FsprogsiStage;
+        e2fsprogs = ssE2FsprogsStage;
       };
 
+      packages.x86_64-linux.sysconf = {
+        default = linuxKernelStage;
+        sysconf = sysConfStage;
+        kernel = linuxKernelStage;
+      };
 
-      packages.x86_64-linux.default = fhsUtilLinuxStage;
+      packages.x86_64-linux.default = linuxKernelStage;
     };
 
 }

@@ -3,7 +3,7 @@ let
   stdenvNoCC = pkgs.stdenvNoCC;
 
   fhsEnv = stdenvNoCC.mkDerivation {
-    name = "fhs-env";
+    name = "fhs-build-env";
     phases = [ "prepEnvironmentPhase" "configurePhase" "buildPhase" ];
 
     nativeBuildInputs = with pkgs; [
@@ -73,6 +73,7 @@ let
             "--tmpfs /run"
             "--tmpfs /dev/shm"
             "--dir /out"
+            "--dir /build_tools"
             "--bind $LFS/usr/bin /usr/bin"
             "--bind $LFS/usr/lib /lib"
             "--bind $LFS/usr/lib /lib64"
@@ -116,9 +117,11 @@ let
 
   # FHS Env bash script
   setupEnvScript = ''
-      chmod u+w /*
+      set -e
       install -dv -m 0750 /root
       install -dv -m 1777 /tmp /var/tmp
+
+      ln -sv bash /bin/sh
 
       ln -sv /proc/self/mounts /etc/mtab
 
@@ -181,27 +184,45 @@ let
     nogroup:x:65534:
     EOF
 
-      # Come back to this section after system is assembled and before transfering to mnt
+      mkdir /build_tools/bin
 
-      # echo "tester:x:101:101::/home/tester:/bin/bash" >> /etc/passwd
-      # echo "tester:x:101:" >> /etc/group
-      # echo $(ls)
-      # mkdir /home/tester
-      # useradd tester
-      # # chown tester:tester /home/tester
-      # install -o tester -d /home/tester
+      cat > /build_tools/bin/chmod << "EOF"
+    #!/bin/sh
+    echo "chmod called with arguments: $@" >> /build_tools/chmod_calls.log
+    /usr/bin/chmod $@
+    exit 0
+    EOF
 
-      touch /var/log/btmp
-      touch /var/log/lastlog
-      touch /var/log/faillog
-      touch /var/log/wtmp   
-      # echo $(ls /var/log)
-      # come back to this after assembly 
+      cat > /build_tools/bin/chown << "EOF"
+    #!/bin/sh
+    echo "chown called with arguments: $@" >> /build_tools/chown_calls.log
+    exit 0
+    EOF
+
+      cat > /build_tools/bin/chgrp << "EOF"
+    #!/bin/sh
+    echo "chgrp called with arguments: $@" >> /build_tools/chgrp_calls.log
+    exit 0
+    EOF
+
+      chmod +x /build_tools/bin/chown
+      chmod +x /build_tools/bin/chmod
+      chmod +x /build_tools/bin/chgrp
+
+      export PATH=/build_tools/bin:$PATH
+      echo $(ls -al /usr/bin)
+      echo $(cat /build_tools/bin/chmod)
+      cat > /var/log/btmp
+      cat > /var/log/lastlog
+      cat > /var/log/faillog
+      cat > /var/log/wtmp   
       # chgrp -v utmp /var/log/lastlog
       chmod -v 664 /var/log/lastlog
       chmod -v 600 /var/log/btmp
 
-      mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media}
+      set +e
+      mkdir $OUT
+      mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
       cp -pvr /usr/* $OUT/usr
       cp -pvr /opt/* $OUT/opt
       cp -pvr /srv/* $OUT/srv
@@ -213,6 +234,7 @@ let
       cp -pvr /bin/* $OUT/bin
       cp -pvr /tools/* $OUT/tools
       cp -pvr /media/* $OUT/media
+      cp -pvr /build_tools/* $OUT/build_tools
   '';
 in
 fhsEnv

@@ -65,6 +65,7 @@ let
             "--tmpfs /dev/shm"
             "--tmpfs /etc"
             "--dir /tmp/out"
+              "--dir /build_tools"
             "--bind $out /tmp/out"
             "--bind $LFS/usr/lib /lib64"
             "--bind $LFS/tmp/src /tmp/src"
@@ -78,6 +79,7 @@ let
             "--bind $LFS/var /var"
             "--bind $LFS/etc /etc"
             "--bind $LFS/home /home"
+              "--bind $LFS/build_tools /build_tools"
             "--clearenv"
             "--setenv HOME /root"
             "--setenv PATH /usr/bin:/usr/sbin"
@@ -106,6 +108,7 @@ let
   };
 
   setupEnvScript = ''
+    export PATH=/build_tools/bin:$PATH
     cd /tmp/src
 
     ZONEINFO=/usr/share/zoneinfo
@@ -127,7 +130,7 @@ let
     
     unset ZONEINFO 
          
-    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media}
+    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
     cp -pvr /usr/* $OUT/usr
     cp -pvr /opt/* $OUT/opt
     cp -pvr /srv/* $OUT/srv
@@ -140,6 +143,7 @@ let
     cp -pvr /var/* $OUT/var
     cp -pvr /bin/* $OUT/bin
     cp -pvr /media/* $OUT/media
+    cp -pvr /build_tools/* $OUT/build_tools
   '';
 in
 fhsEnv

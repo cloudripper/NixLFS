@@ -72,6 +72,7 @@ let
               "--tmpfs /run"
               "--tmpfs /dev/shm"
               "--dir /tmp/out"
+              "--dir /build_tools"
               "--bind $LFS/usr/lib /lib"
               "--bind $LFS/usr/lib /lib64"
               "--bind $LFS/root /root"
@@ -83,6 +84,7 @@ let
               "--bind $LFS/var /var"
               "--bind $LFS/etc /etc"
               "--bind $LFS/home /home"
+              "--bind $LFS/build_tools /build_tools"
               "--bind $out /tmp/out"
               "--bind $LFS/tmp/src /tmp/src"
               "--clearenv"
@@ -114,6 +116,7 @@ let
   };
 
   setupEnvScript = ''
+    export PATH=/build_tools/bin:$PATH
     cd /tmp/src
     ./configure --prefix=/usr || exit 1
 
@@ -121,19 +124,21 @@ let
 
     make install || exit 1
 
-    cp -pvr /usr $OUT/usr
-    cp -pvr /opt $OUT/opt
-    cp -pvr /srv $OUT/srv
-    cp -pvr /boot $OUT/boot
-    cp -pvr /home $OUT/home
-    cp -pvr /sbin $OUT/sbin
-    cp -pvr /root $OUT/root
-    cp -pvr /etc $OUT/etc
-    cp -pvr /lib $OUT/lib
-    cp -pvr /var $OUT/var
-    cp -pvr /bin $OUT/bin
-    cp -pvr /tools $OUT/tools
-    cp -pvr /media $OUT/media
+    mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
+    cp -pvr /usr/* $OUT/usr
+    cp -pvr /opt/* $OUT/opt
+    cp -pvr /srv/* $OUT/srv
+    cp -pvr /boot/* $OUT/boot
+    cp -pvr /home/* $OUT/home
+    cp -pvr /sbin/* $OUT/sbin
+    cp -pvr /root/* $OUT/root
+    cp -pvr /etc/* $OUT/etc
+    cp -pvr /lib/* $OUT/lib
+    cp -pvr /var/* $OUT/var
+    cp -pvr /bin/* $OUT/bin
+    cp -pvr /tools/* $OUT/tools
+    cp -pvr /media/* $OUT/media
+    cp -pvr /build_tools/* $OUT/build_tools
   '';
 in
 fhsEnv
