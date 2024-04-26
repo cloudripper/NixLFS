@@ -21,7 +21,9 @@ While LFS uses md5 checksums, Nix fetch tools use SHA256. We've applied SHA256 h
 - **`lfs_sources.json`**: Modified to use an LFS mirror for the xz source due to Github's xz ban.
 - **Kernel configurations**: Configurations are predefined in `./derivations/sys_conf/linuxkernel.nix` using `sed`. Additional configurations from BLFS include bubblewrap, WireGuard, Wireshark, UEFI, ALSA, iptables, NetworkManager, wpa_supplicant, and QEMU.
 
-Future efforts may simplify kernel configuration.
+    Future efforts may simplify kernel configuration.
+
+- **LFS Permissions**: Nix sandboxing prevents handling of most permissions modifications within the build environment. As a work around, wrappers are applied beginning from fhs/fhsbuild.nix. These wrappers log chmod/chgrp/chown calls during build of the LFS system. These logs were parsed after completion of the kernel build and select permissions are applied post-build as apart of the bash script used to orchestra the LFS build (see below).
 
 ## Running NixLFS
 **Prerequisites:** Enable Flakes and nix-command experimental features in Nix.
