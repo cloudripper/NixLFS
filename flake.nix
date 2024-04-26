@@ -40,23 +40,14 @@
       gcc2Stage = import ./derivations/temp_tools/gcc2.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc1 = binutils2Stage; };
 
       # FHS-compliant environment builds
-      fhsPrep = import ./derivations/fhs/fhsprep.nix { pkgs = x86_pkgs; cc2 = gcc2Stage; };
       fhsBuildStage = import ./derivations/fhs/fhsbuild.nix { pkgs = x86_pkgs; cc2 = gcc2Stage; };
       fhsGetTextStage = import ./derivations/fhs/fhsgettext.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = fhsBuildStage; };
-      fhsBisonStage = import ./derivations/fhs/fhsbison.nix {
-        pkgs = x86_pkgs;
-        lfsSrcs = lfsSrcList;
-        cc2 = fhsGetTextStage;
-      };
+      fhsBisonStage = import ./derivations/fhs/fhsbison.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = fhsGetTextStage; };
       fhsPerlStage = import ./derivations/fhs/fhsperl.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = fhsBisonStage; };
       fhsPythonStage = import ./derivations/fhs/fhspython.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = fhsPerlStage; lib = nixpkgs.lib; };
       fhsTexinfoStage = import ./derivations/fhs/fhstexinfo.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = fhsPythonStage; lib = nixpkgs.lib; };
       fhsUtilLinuxStage = import ./derivations/fhs/fhsutillinux.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = fhsTexinfoStage; lib = nixpkgs.lib; };
       fhsCleanupStage = import ./derivations/fhs/fhscleanup.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = fhsUtilLinuxStage; lib = nixpkgs.lib; };
-      fhsTest = import ./derivations/fhs/fhstext.nix {
-        pkgs = x86_pkgs;
-        fhsEnv = fhsUtilLinuxStage;
-      };
 
       # System software
       ssManpagesStage = import ./derivations/sys_software/ssmanpages.nix { pkgs = x86_pkgs; lfsSrcs = lfsSrcList; cc2 = fhsUtilLinuxStage; lib = nixpkgs.lib; };
@@ -184,8 +175,6 @@
         texinfo = fhsTexinfoStage;
         utillinux = fhsUtilLinuxStage;
         cleanup = fhsCleanupStage;
-        test = fhsTest;
-        env = fhsPrep;
       };
 
       packages.x86_64-linux.ss = {
