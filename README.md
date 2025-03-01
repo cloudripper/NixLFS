@@ -1,7 +1,5 @@
 # NixLFS: Linux from Scratch... from Nix
-
-<img src="./imgs/NixLFS_wordcloud.png" width="700"/>
-
+<img src="./imgs/NixLFS_wordcloud.png" width="900"/>
 #### Based on LFS 12.2 - systemd version
 
 ## Overview
