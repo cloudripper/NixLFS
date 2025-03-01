@@ -1,18 +1,27 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-expect-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.expect;
-      sha256 = "1ar1d79qzvz0pdgr8k3wpzbh2q7sxrggcsqmyfk7cq80pzqvjldj";
+      sha256 = lfsHashes.expect;
     };
 
-    phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
+    patchSrc = builtins.fetchurl {
+      url = lfsSrcs.expect_patch;
+      sha256 = lfsHashes.expect_patch;
+    };
+
+    phases = [ "prepEnvironmentPhase" "unpackPhase" "patchPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -23,6 +32,10 @@ let
 
       cp -r $CC2/* $LFS
       chmod -R u+w $LFS
+    '';
+
+    patchPhase = ''
+      cp $patchSrc expect.patch
     '';
 
     configurePhase = ''
@@ -36,16 +49,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -81,7 +94,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -108,20 +121,22 @@ let
 
     python3 -c 'from pty import spawn; spawn(["echo", "ok"])'
 
+    patch -Np1 -i ./expect.patch
+
     ./configure --prefix=/usr \
                 --with-tcl=/usr/lib \
                 --enable-shared \
                 --mandir=/usr/share/man \
                 --with-tclinclude=/usr/include
-    make
+    make -j$(nproc)
 
     make test
 
     make install
 
     ln -svf expect5.45.4/libexpect5.45.4.so /usr/lib
-    
-      
+
+
     set +e
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
     cp -pvr /usr/* $OUT/usr
@@ -140,5 +155,3 @@ let
   '';
 in
 fhsEnv
-          
-    

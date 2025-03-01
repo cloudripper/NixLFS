@@ -1,18 +1,22 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-perl-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.perl;
-      sha256 = "1ddz3rqimsrlhzp786hg0z9yldj2866mckbkkgz0181yasdivwad";
+      sha256 = lfsHashes.perl;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -37,16 +41,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -83,7 +87,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -117,16 +121,16 @@ let
 
     export BUILD_ZLIB=False
     export BUILD_BZIP2=0
-    
+
     sh Configure -des \
                   -Dprefix=/usr \
                   -Dvendorprefix=/usr \
-                  -Dprivlib=/usr/lib/perl5/5.38/core_perl \
-                  -Darchlib=/usr/lib/perl5/5.38/core_perl \
-                  -Dsitelib=/usr/lib/perl5/5.38/site_perl \
-                  -Dsitearch=/usr/lib/perl5/5.38/site_perl \
-                  -Dvendorlib=/usr/lib/perl5/5.38/vendor_perl \
-                  -Dvendorarch=/usr/lib/perl5/5.38/vendor_perl \
+                  -Dprivlib=/usr/lib/perl5/5.40/core_perl \
+                  -Darchlib=/usr/lib/perl5/5.40/core_perl \
+                  -Dsitelib=/usr/lib/perl5/5.40/site_perl \
+                  -Dsitearch=/usr/lib/perl5/5.40/site_perl \
+                  -Dvendorlib=/usr/lib/perl5/5.40/vendor_perl \
+                  -Dvendorarch=/usr/lib/perl5/5.40/vendor_perl \
                   -Dman1dir=/usr/share/man/man1 \
                   -Dman3dir=/usr/share/man/man3 \
                   -Dpager="/usr/bin/less -isR" \
@@ -134,7 +138,7 @@ let
                   -Dusethreads \
                   -Dcc=gcc
 
-    make
+    make -j$(nproc)
 
     # TEST_JOBS=$(nproc) make test_harness
 
@@ -159,5 +163,3 @@ let
   '';
 in
 fhsEnv
-          
-    

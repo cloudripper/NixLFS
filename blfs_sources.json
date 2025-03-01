@@ -1,0 +1,5 @@
+{
+  "unicode_font": "https://unifoundry.com/pub/unifont/unifont-15.1.05/font-builds/unifont-15.1.05.pcf.gz",
+  "freetype": "https://downloads.sourceforge.net/freetype/freetype-2.13.3.tar.xz",
+  "freetype_documentation": "https://downloads.sourceforge.net/freetype/freetype-doc-2.13.3.tar.xz"
+}

@@ -1,8 +1,8 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 let
   # nixpkgs = import <nixpkgs> {};
   nixpkgs = pkgs;
-  stdenvNoCC = nixpkgs.stdenvNoCC;
+  stdenv = nixpkgs.stdenvNoCC;
 
   nativePackages = with pkgs; [
     cmake
@@ -13,17 +13,17 @@ let
 
   # Attributes for stdenv.mkDerivation can be found at:
   # https://nixos.org/manual/nixpkgs/stable/#sec-tools-of-stdenv
-  ncursesPkg = stdenvNoCC.mkDerivation {
+  ncursesPkg = stdenv.mkDerivation {
     name = "ncurses-LFS";
 
     src = pkgs.fetchurl {
       url = lfsSrcs.ncurses;
-      hash = "sha256-12pS9gRxi8XmtIlDsCHB5EY8xrImpEz+GaNpi2+JVXk=";
+      sha256 = lfsHashes.ncurses;
     };
 
     nativeBuildInputs = [ nativePackages ] ++ [ cc1 ];
     buildInputs = [ cc1 pkgs.gcc ];
-
+    dontFixup = true;
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -33,7 +33,7 @@ let
       export CONFIG_SITE=$LFS/usr/share/config.site
       export PATH=$LFSTOOLS/bin:$PATH
       export PATH=$LFS/usr/bin:$PATH
-      export CC1=${cc1} 
+      export CC1=${cc1}
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS
     '';
@@ -43,15 +43,16 @@ let
       echo $(env | grep TGT)
       echo $(env | grep LD_)
       chmod -R u+w $LFS
-    
       mkdir build
-      pushd build 
-          ../configure 
-          make -C include 
-          make -C progs tic 
+      pushd build
+          ../configure
+          make -C include
+          make -C progs tic
       popd
-      export CC=$LFS_TGT-gcc
-      export CXX=$LFS_TGT-g++
+
+      # export CC=$LFSTOOLS/bin/x86_64-lfs-linux-gnu-gcc
+      # export CXX=$LFSTOOLS/bin/x86_64-lfs-linux-gnu-g++
+
       ./configure --prefix=/usr        \
           --host=$LFS_TGT              \
           --build=$(./config.guess)    \
@@ -63,19 +64,19 @@ let
           --without-debug              \
           --without-ada                \
           --disable-stripping          \
-          --enable-widec     
+          --enable-widec
     '';
 
     installPhase = ''
       make DESTDIR=$LFS install TIC_PATH=$(pwd)/build/progs/tic
-      
+
       pushd $LFS/usr/lib
       ln -sv ./libncursesw.so ./libncurses.so
-      popd 
+      popd
       sed -e 's/^#if.*XOPEN.*$/#if 1/' \
           -i $LFS/usr/include/curses.h
 
-      runHook postInstall 
+      runHook postInstall
     '';
 
     postInstall = ''

@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 let
   nixpkgs = pkgs;
   stdenvNoCC = nixpkgs.stdenvNoCC;
@@ -15,11 +15,12 @@ let
 
     src = pkgs.fetchurl {
       url = lfsSrcs.binutils;
-      hash = "sha256-9uTUH9X8d4sGt4kUV7NiDaXs6hAGxqSkGumYEJ+FqAA=";
+      sha256 = lfsHashes.binutils;
     };
 
     nativeBuildInputs = [ nativePackages ];
     buildInputs = [ cc1 pkgs.gcc ];
+    # dontFixup = true;
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -34,7 +35,6 @@ let
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS
     '';
-
 
     configurePhase = ''
 
@@ -52,6 +52,7 @@ let
           --enable-gprofng=no \
           --disable-werror \
           --enable-64-bit-bfd \
+          --enable-new-dtags \
           --enable-default-hash-style=gnu
     '';
 

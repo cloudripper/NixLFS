@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 let
   # nixpkgs = import <nixpkgs> {};
   stdenvNoCC = pkgs.stdenvNoCC;
@@ -18,14 +18,14 @@ let
 
     src = pkgs.fetchurl {
       url = lfsSrcs.gcc;
-      hash = "sha256-4nXnZEKmBnNBon8Exca4PYYTFEAEwEE1KIY9xrXHQ9o=";
+      sha256 = lfsHashes.gcc;
     };
 
 
     nativeBuildInputs = [ nativePackages ];
     buildInputs = [ cc1 ];
 
-
+    dontFixup = true;
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
       export LFS=$(pwd)
@@ -51,9 +51,9 @@ let
                        --disable-multilib              \
                        --disable-nls                   \
                        --disable-libstdcxx-pch         \
-                       --with-gxx-include-dir=/tools/$LFS_TGT/include/c++/13.2.0 \
+                       --with-gxx-include-dir=/tools/$LFS_TGT/include/c++/14.2.0 \
                        CFLAGS='-fpermissive' \
-                       CXXFLAGS='-fpermissive' 
+                       CXXFLAGS='-fpermissive'
     '';
 
     installFlags = [ "DESTDIR=$(LFS)" ];

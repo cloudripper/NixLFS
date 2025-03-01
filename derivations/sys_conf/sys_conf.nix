@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
@@ -23,16 +23,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -67,7 +67,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -94,7 +94,7 @@ let
                       libc.so.6
                       libthread_db.so.1
                       libquadmath.so.0.0.0
-                      libstdc++.so.6.0.32
+                      libstdc++.so.6.0.33
                       libitm.so.1.0.0
                       libatomic.so.1.2.0"
 
@@ -111,14 +111,14 @@ let
 
         online_usrbin="bash find strip"
 
-        online_usrlib="libbfd-2.42.so
+        online_usrlib="libbfd-2.43.1.so
           libsframe.so.1.0.0
           libhistory.so.8.2
-          libncursesw.so.6.4
+          libncursesw.so.6.5
           libm.so.6
           libreadline.so.8.2
           libz.so.1.3.1
-          libzstd.so.1.5.5
+          libzstd.so.1.5.6
           $(cd /usr/lib; find libnss*.so* -type f)"
 
         for BIN in $online_usrbin; do
@@ -146,7 +146,7 @@ let
           esac
         done
 
-        unset BIN LIB save_usrlib online_usrbin online_usrlib    
+        unset BIN LIB save_usrlib online_usrbin online_usrlib
 
         # cleanup
         rm -rf /tmp/*
@@ -161,16 +161,6 @@ let
 
         # default network device naming
         ln -s /dev/null /etc/systemd/network/99-default.link
-
-    #     # Static IP config
-    #     cat > /etc/systemd/network/10-eth-static.network << "EOF"
-    # [Match]
-    # Name=<network-device-name>
-
-    # [Network]
-    # Address=192.168.102.1
-    # Gateway=192.168.1.4
-    # EOF
 
         # DHCP Conf
         cat > /etc/systemd/network/10-eth-dhcp.network << "EOF"
@@ -187,13 +177,12 @@ let
         cat > /etc/resolv.conf << "EOF"
     # Begin /etc/resolv.conf
 
-    # domain <eg> 
-    nameserver 192.168.1.4
+    nameserver 9.9.9.9
 
     # End /etc/resolv.conf
     EOF
         # System hostname
-        echo "devix" > /etc/hostname
+        echo "<lfs>" > /etc/hostname
 
         cat > /etc/hosts << "EOF"
     # Begin /etc/hosts
@@ -227,18 +216,18 @@ let
         cat > /etc/profile << "EOF"
     # Begin /etc/profile
     for i in $(locale); do
-    unset ''${i%=*}
+      unset ''${i%=*}
     done
     if [[ "$TERM" = linux ]]; then
-    export LANG=C.UTF-8
+      export LANG=C.UTF-8
     else
-    source /etc/locale.conf
-    for i in $(locale); do
-    key=''${i%=*}
-    if [[ -v $key ]]; then
-    export $key
-    fi
-    done
+      source /etc/locale.conf
+      for i in $(locale); do
+        key=''${i%=*}
+        if [[ -v $key ]]; then
+          export $key
+        fi
+      done
     fi
     # End /etc/profile
     EOF
@@ -276,14 +265,14 @@ let
     "\e[F": end-of-line
     # End /etc/inputrc
     EOF
-    
+
         cat > /etc/shells << "EOF"
     # Begin /etc/shells
     /bin/sh
-    bin/bash
+    /bin/bash
     # End /etc/shells
     EOF
-    
+
         # Systemd config
         # disable clear screen at boot time
         mkdir -pv /etc/systemd/system/getty@tty1.service.d
@@ -295,18 +284,18 @@ let
         # This disabled tmpfs for /tmp
         # ln -sfv /dev/null /etc/systemd/system/tmp.mount
 
-        # /etc/fstab config file
+        # /etc/fstab config file - ref: https://linuxconfig.org/how-fstab-works-introduction-to-the-etc-fstab-file-on-linux
         cat > /etc/fstab << "EOF"
     # Begin /etc/fstab
 
     # File_system  mount_point  type  options         dump     fsck order
 
-    /dev/ext4      /            defaults              1        1
+    /dev/nvme0n1p4    /    ext4     defaults      1        1
 
     # Enf of /etc/fstab
     EOF
 
-    
+
         set +e
         mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
         cp -pvr /usr/* $OUT/usr
@@ -325,5 +314,3 @@ let
   '';
 in
 fhsEnv
-          
-    

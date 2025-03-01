@@ -1,23 +1,23 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "fhs-glibc-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.glibc;
-      sha256 = "0zr0lk75rvkxp0xplfsggaj4fcv1xjpsvg5qrvp6yifim77q2mn0";
+      sha256 = lfsHashes.glibc;
     };
 
     patchSrc = builtins.fetchurl {
       url = lfsSrcs.glibc_patch;
-      sha256 = "03bvq857ajfvxdb0wbjayfmkyggqyph5ixg4zmzjsbqf0gdm4db4";
+      sha256 = lfsHashes.glibc_patch;
     };
 
     tzdataSrc = builtins.fetchurl {
-      url = lfsSrcs.tzdata2024a;
-      sha256 = "1qzzxnv059gziwjccsgdys8nba4498qg78cdgad0blnbk92k810d";
+      url = lfsSrcs.time_zone_data;
+      sha256 = lfsHashes.time_zone_data;
     };
 
 
@@ -25,6 +25,10 @@ let
     phases = [ "prepEnvironmentPhase" "unpackPhase" "patchPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
 
     prePhases = "prepEnvironmentPhase";
@@ -40,7 +44,7 @@ let
 
 
     patchPhase = ''
-      cp $patchSrc glibc-2.39-fhs-1.patch
+      cp $patchSrc glibc-fhs-1.patch
     '';
 
     configurePhase = ''
@@ -51,22 +55,22 @@ let
       mkdir -pv $LFS/tmp/src
 
       # copy tz data to source root
-      cp $tzdataSrc ./tzdata2024a.tar.gz
+      cp $tzdataSrc ./tzdata.tar.gz
 
       cp -rpv $SRC/* $LFS/tmp/src
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -80,7 +84,7 @@ let
             "--tmpfs /dev/shm"
             "--tmpfs /etc"
             "--dir /tmp/out"
-              "--dir /build_tools"
+            "--dir /build_tools"
             "--bind $out /tmp/out"
             "--bind $LFS/usr/lib /lib64"
             "--bind $LFS/tmp/src /tmp/src"
@@ -102,7 +106,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -126,7 +130,7 @@ let
     export PATH=/build_tools/bin:$PATH
         cd /tmp/src
 
-        patch -Np1 -i ./glibc-2.39-fhs-1.patch 
+        patch -Np1 -i ./glibc-fhs-1.patch
 
         mkdir -v build
         cd build
@@ -140,7 +144,7 @@ let
                     --disable-nscd \
                     libc_cv_slibdir=/usr/lib
 
-        make
+        make -j$(nproc)
 
         make check
 
@@ -205,7 +209,7 @@ let
     # End /etc/nsswitch.conf
     EOF
 
-        tar -xf ./tzdata2024a.tar.gz
+        tar -xf ./tzdata.tar.gz
 
         ZONEINFO=/usr/share/zoneinfo
         mkdir -pv $ZONEINFO/{posix,right}
@@ -223,7 +227,7 @@ let
 
         unset ZONEINFO
 
-        ln -sfv /usr/share/zoneinfo/America/Los_Angeles /etc/localtime                  
+        ln -sfv /usr/share/zoneinfo/America/Los_Angeles /etc/localtime
 
         cat > /etc/ld.so.conf << "EOF"
     # Begin /etc/ld.so.conf
@@ -245,9 +249,7 @@ let
         cp -pvr /var/* $OUT/var
         cp -pvr /bin/* $OUT/bin
         cp -pvr /media/* $OUT/media
-    cp -pvr /build_tools/* $OUT/build_tools
+        cp -pvr /build_tools/* $OUT/build_tools
   '';
 in
 fhsEnv
-    
-

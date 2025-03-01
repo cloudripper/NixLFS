@@ -1,23 +1,27 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-python-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.python;
-      sha256 = "0bvnsq8p22x8fr7sjmf3ypf5fdyfmhjh2iz6zsw2b6ifmg30ajxh";
+      sha256 = lfsHashes.python;
     };
 
     docSrc = builtins.fetchurl {
-      url = lfsSrcs.python_docs;
-      sha256 = "06sibihkfnj9xq0zaav6cw8v7h6p5wz1b8g3m2np7dg868x3p0cp";
+      url = lfsSrcs.python_documentation;
+      sha256 = lfsHashes.python_documentation;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -37,22 +41,22 @@ let
       # src folder
       mkdir -pv $LFS/tmp/src
 
-      cp -vp $docSrc $SRC/python-3.12.2-docs-html.tar.bz2
+      cp -vp $docSrc $SRC/python-docs-html.tar.bz2
 
       cp -rpv $SRC/* $LFS/tmp/src
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -89,7 +93,7 @@ let
             "--setenv MAKEFLAGS -j$(nproc)"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -119,15 +123,15 @@ let
                 --with-system-expat \
                 --enable-optimizations
 
-    make
+    make -j$(nproc)
 
     make install
 
-    install -v -dm755 /usr/share/doc/python-3.12.2/html
+    install -v -dm755 /usr/share/doc/python-3.12.5/html
     tar --no-same-owner \
-        -xvf ./python-3.12.2-docs-html.tar.bz2
-    cp -R --no-preserve=mode python-3.12.2-docs-html/* \
-    /usr/share/doc/python-3.12.2/html
+        -xvf ./python-docs-html.tar.bz2
+    cp -R --no-preserve=mode python-3.12.5-docs-html/* \
+    /usr/share/doc/python-3.12.5/html
 
     set +e
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
@@ -147,5 +151,3 @@ let
   '';
 in
 fhsEnv
-          
-    

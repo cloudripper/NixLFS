@@ -1,8 +1,5 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 let
-  # nixpkgs = import <nixpkgs> {};
-  nixpkgs = pkgs;
-  lib = pkgs.lib;
   stdenvNoCC = pkgs.stdenvNoCC;
 
   nativePackages = with pkgs; [
@@ -21,18 +18,17 @@ let
 
     src = pkgs.fetchurl {
       url = lfsSrcs.glibc;
-      hash = "sha256-93vUfPgXDFc2Wue/hmlsEYrbOxINMlnGTFAtPcHi2SY=";
+      sha256 = lfsHashes.glibc;
     };
 
     patchSrc = pkgs.fetchurl {
       url = lfsSrcs.glibc_patch;
-      sha256 = "277807353a6726978996945af13e52829e3abd7a9a5b7fb2793894e18f1fcbb2";
+      sha256 = lfsHashes.glibc_patch;
     };
 
 
     nativeBuildInputs = [ nativePackages ];
     buildInputs = [ cc1 pkgs.gcc ];
-
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -46,10 +42,13 @@ let
 
       cp -r $CC1/* $LFS/
       chmod -R u+w $LFS
+
     '';
 
     configurePhase = ''
        echo "rootsbindir=/usr/sbin" > configparms
+       cp -pv $patchSrc ./glibc.patch
+       patch -Np1 -i ./glibc.patch
 
        mkdir -v build
        cd build
@@ -67,8 +66,8 @@ let
     installFlags = [ "DESTDIR=$(LFS)" ];
 
     postInstall = ''
-      sed '/RTLDLIST=/s@/usr@@g' -i $LFS/usr/bin/ldd           
-      
+      sed '/RTLDLIST=/s@/usr@@g' -i $LFS/usr/bin/ldd
+
       pushd $LFS/lib
       case $(uname -m) in
           i?86)   ln -sfv ./ld-linux.so.2 ./ld-lsb.so.3

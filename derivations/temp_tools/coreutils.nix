@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 let
   nixpkgs = pkgs;
   stdenvNoCC = nixpkgs.stdenvNoCC;
@@ -15,11 +15,12 @@ let
 
     src = pkgs.fetchurl {
       url = lfsSrcs.coreutils;
-      hash = "sha256-6mE6TPRGEjJukXIBu7zfvTAd4h/8O1m25cB+BAsnXlI=";
+      sha256 = lfsHashes.coreutils;
     };
 
     nativeBuildInputs = [ nativePackages ];
     buildInputs = [ cc1 ];
+    dontFixup = true;
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -52,7 +53,6 @@ let
       mkdir -pv $LFS/usr/share/man/man8
       mv -v $LFS/usr/share/man/man1/chroot.1  $LFS/usr/share/man/man8/chroot.8
       sed -i 's/"1"/"8"/'                     $LFS/usr/share/man/man8/chroot.8
-
       rm -r $LFS/$sourceRoot
       cp -rvp $LFS/* $out/
     '';

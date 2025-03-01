@@ -1,8 +1,6 @@
 
-{ pkgs, lfsSrcs }:
-let 
-    # nixpkgs = import <nixpkgs> {};
-    lib = pkgs.lib;
+{ pkgs, lfsSrcs, lfsHashes }:
+let
     stdenv = pkgs.stdenv;
 
     nativePackages = with pkgs; [
@@ -11,20 +9,17 @@ let
         gnum4
         bison
       ];
-    
-    buildPackages = with pkgs; [
-    ];
-      
+
     binutilsPkg = stdenv.mkDerivation {
         name="binutils-LFS";
-        
+
         src = pkgs.fetchurl {
             url = lfsSrcs.binutils;
-            hash = "sha256-9uTUH9X8d4sGt4kUV7NiDaXs6hAGxqSkGumYEJ+FqAA=";
+            sha256 = lfsHashes.binutils;
         };
 
         nativeBuildInputs = [ nativePackages ];
-        buildInputs = [ buildPackages ];
+        buildInputs = [ ];
 
         prePhases = "prepEnvironmentPhase";
         prepEnvironmentPhase = ''
@@ -34,10 +29,10 @@ let
             mkdir -v $LFSTOOLS
         '';
 
-        
+
         # Using --prefix=$out instead of $LFS/tools.
         configurePhase = ''
-            echo "Configuring..."
+            echo "Configuring... "
             echo "Starting config"
             time ( ./configure --prefix=$LFSTOOLS   \
                             --with-sysroot=$LFS     \
@@ -45,6 +40,7 @@ let
                             --disable-nls           \
                             --enable-gprofng=no     \
                             --disable-werror        \
+                            --enable-new-dtags      \
                             --enable-default-hash-style=gnu
                 )
         '';

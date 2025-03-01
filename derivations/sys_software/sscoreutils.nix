@@ -1,22 +1,26 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-coreutils-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.coreutils;
-      sha256 = "013xx0qvc20d286gfyiibqgjdlpsidyxvaq4dd4lmzvihmwd15fb";
+      sha256 = lfsHashes.coreutils;
     };
     patchSrc = builtins.fetchurl {
       url = lfsSrcs.coreutils_patch;
-      sha256 = "02js24vh5zrp56kflwk1z76yh1cxwg6snpkyvcq2bf569lnlnjqx";
+      sha256 = lfsHashes.coreutils_patch;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -36,22 +40,22 @@ let
       # src folder
       mkdir -pv $LFS/tmp/src
 
-      cp -pv $patchSrc $SRC/coreutils-9.4-i18n-1.patch
+      cp -pv $patchSrc $SRC/coreutils.patch
 
       cp -rpv $SRC/* $LFS/tmp/src
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -65,7 +69,7 @@ let
             "--tmpfs /dev/shm"
             "--tmpfs /etc"
             "--dir /tmp/out"
-              "--dir /build_tools"
+            "--dir /build_tools"
             "--bind $out /tmp/out"
             "--bind $LFS/usr/lib /lib64"
             "--bind $LFS/tmp/src /tmp/src"
@@ -79,7 +83,7 @@ let
             "--bind $LFS/var /var"
             "--bind $LFS/etc /etc"
             "--bind $LFS/home /home"
-              "--bind $LFS/build_tools /build_tools"
+            "--bind $LFS/build_tools /build_tools"
             "--clearenv"
             "--setenv HOME /root"
             "--setenv PATH /usr/bin:/usr/sbin"
@@ -88,7 +92,7 @@ let
             "--setenv MAKEFLAGS -j$(nproc)"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -113,7 +117,7 @@ let
     set -e
     cd /tmp/src
 
-    patch -Np1 -i ./coreutils-9.4-i18n-1.patch
+    patch -Np1 -i ./coreutils.patch
 
     sed -e '/n_out += n_hold/,+4 s|.*bufsize.*|//&|' \
         -i src/split.c
@@ -123,13 +127,13 @@ let
                 --prefix=/usr \
                 --enable-no-install-program=kill,uptime
 
-    make
-    # PATH=$PATH make RUN_EXPENSIVE_TESTS=yes check
+    make -j$(nproc)
+
     make install
     mv -v /usr/bin/chroot /usr/sbin
     mv -v /usr/share/man/man1/chroot.1 /usr/share/man/man8/chroot.8
     sed -i 's/"1"/"8"/' /usr/share/man/man8/chroot.8
-    
+
     set +e
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
     cp -pvr /usr/* $OUT/usr
@@ -148,5 +152,3 @@ let
   '';
 in
 fhsEnv
-          
-    

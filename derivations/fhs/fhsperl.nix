@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc2 }:
+{ pkgs, lfsSrcs, lfsHashes, cc2 }:
 let
   stdenvNoCC = pkgs.stdenvNoCC;
 
@@ -13,12 +13,14 @@ let
       findutils
       strace
       file
+      gnutar
+      xz
     ];
 
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.perl;
-      sha256 = "1ddz3rqimsrlhzp786hg0z9yldj2866mckbkkgz0181yasdivwad";
+      sha256 = lfsHashes.perl;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
@@ -50,22 +52,22 @@ let
       mkdir -pv $LFS/tmp/src
 
       cp -rpv $SRC/* $LFS/tmp/src
-      cp -rpv $SRC/.* $LFS/tmp/src    
+      cp -rpv $SRC/.* $LFS/tmp/src
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
-          
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
+
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
          extraBuildCommands = ''
-          rm lib64
+          rm -rf lib64
         '';
-        
+
           extraBwrapArgs = [
               "--unshare-user"
               "--unshare-uts"
@@ -99,8 +101,9 @@ let
               "--setenv OUT /tmp/out"
               "--setenv SRC /tmp/src"
               "--setenv CONFIG_SITE $LFS/usr/share/config.site"
+              "--setenv LC_ALL POSIX"
           ];
-      }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+      }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -120,28 +123,28 @@ let
     '';
   };
 
-  setupEnvScript = ''  
+  setupEnvScript = ''
     export PATH=/build_tools/bin:$PATH
-    set -e 
+    set -e
     cd /tmp/src
-    
-    sh Configure -des \
-      -Dprefix=/usr \
-      -Dvendorprefix=/usr \
-      -Duseshrplib \
-      -Dprivlib=/usr/lib/perl5/5.38/core_perl \
-      -Darchlib=/usr/lib/perl5/5.38/core_perl \
-      -Dsitelib=/usr/lib/perl5/5.38/site_perl \
-      -Dsitearch=/usr/lib/perl5/5.38/site_perl \
-      -Dvendorlib=/usr/lib/perl5/5.38/vendor_perl \
-      -Dvendorarch=/usr/lib/perl5/5.38/vendor_perl \
-      -Dcc=gcc 
-          
-    LDLOADLIBS=-lc make 
-    make install 
+
+    sh Configure -des                                         \
+                 -D prefix=/usr                               \
+                 -D vendorprefix=/usr                         \
+                 -D useshrplib                                \
+                 -D privlib=/usr/lib/perl5/5.40/core_perl     \
+                 -D archlib=/usr/lib/perl5/5.40/core_perl     \
+                 -D sitelib=/usr/lib/perl5/5.40/site_perl     \
+                 -D sitearch=/usr/lib/perl5/5.40/site_perl    \
+                 -D vendorlib=/usr/lib/perl5/5.40/vendor_perl \
+                 -D vendorarch=/usr/lib/perl5/5.40/vendor_perl \
+                 -Dcc=gcc
+
+    make -j$(nproc)
+    make install
 
     set +e
-    
+
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
     cp -pvr /usr/* $OUT/usr
     cp -pvr /opt/* $OUT/opt
@@ -160,5 +163,3 @@ let
   '';
 in
 fhsEnv
-    
-

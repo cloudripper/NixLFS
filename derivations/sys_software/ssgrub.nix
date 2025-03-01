@@ -1,25 +1,29 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, blfsSrcs, blfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-grub-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.grub;
-      sha256 = "1z47cf1jny98nz09rfpmrkq8hn54md00z00haascrrshfcj65112";
+      sha256 = lfsHashes.grub;
     };
 
     # BLFS UEFI/Grub support
 
     fontSrc = builtins.fetchurl {
-      url = "https://unifoundry.com/pub/unifont/unifont-15.1.04/font-builds/unifont-15.1.04.pcf.gz";
-      sha256 = "1qplz5b248whshrhbgaar60pd5vflqkdvd0mc12zh6ky3krqywjw";
+      url = blfsSrcs.unicode_font;
+      sha256 = blfsHashes.unicode_font;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -39,22 +43,22 @@ let
       # src folder
       mkdir -pv $LFS/tmp/src
 
-      cp -pv $fontSrc $SRC/unifont-15.1.04.pcf.gz
+      cp -pv $fontSrc $SRC/unifont.pcf.gz
 
       cp -rpv $SRC/* $LFS/tmp/src
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -90,7 +94,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -116,9 +120,7 @@ let
     cd /tmp/src
     # Installing Grub with UEFI support (from BLFS guidance)
     mkdir -pv /usr/share/fonts/unifont &&
-    gunzip -c ./unifont-15.1.04.pcf.gz > /usr/share/fonts/unifont/unifont.pcf
-    
-    echo depends bli part_gpt > grub-core/extra_deps.lst
+    gunzip -c ./unifont.pcf.gz > /usr/share/fonts/unifont/unifont.pcf
 
     echo depends bli part_gpt > grub-core/extra_deps.lst
 
@@ -128,13 +130,20 @@ let
             --enable-grub-mkfont \
             --with-platform=efi  \
             --target=x86_64      \
-            --disable-werror     
-    
-    make    
+            --disable-werror
 
-    make install
+    unset TARGET_CC
+    make -j$(nproc)
 
+    make install &&
     mv -v /etc/bash_completion.d/grub /usr/share/bash-completion/completions
+
+    # make DESTDIR=$PWD/dest install
+
+    # cp -av dest/usr/lib/grub/x86_64-efi -T /usr/lib/grub/x86_64-efi
+    # cp -av dest/usr/share/grub/*.{pf2,h}   /usr/share/grub
+    # cp -av dest/usr/bin/grub-mkfont        /usr/bin
+    # cp -av dest/usr/bin/grub-mount /usr/bin
 
     set +e
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
@@ -154,5 +163,3 @@ let
   '';
 in
 fhsEnv
-          
-    

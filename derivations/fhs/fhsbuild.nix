@@ -11,7 +11,7 @@ let
       bash
     ];
 
-    buildInputs = [ cc2 ];
+    buildInputs = [ cc2 pkgs.glibc ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -22,7 +22,6 @@ let
       export PATH=$PATH:$LFS/usr/bin
       export PATH=$PATH:$LFSTOOLS/bin
       export CONFIG_SITE=$LFS/usr/share/config.site
- 
 
       cp -r $CC2/* $LFS
       chmod -R u+w $LFS
@@ -32,36 +31,44 @@ let
       # Virtual Kernel File Systems
          mkdir -pv $LFS/{dev,proc,sys,run}
       # Additional FHS root-level directories
-         mkdir -pv $LFS/{mnt,opt,srv,boot,home,sbin,root,tmp} 
+         mkdir -pv $LFS/{mnt,opt,srv,boot,home,sbin,root,tmp}
          mkdir -pv $LFS/etc/{opt,sysconfig}
          mkdir -pv $LFS/lib/firmware
          mkdir -pv $LFS/media
          mkdir -pv $LFS/media/{floppy,cdrom}
          mkdir -pv $LFS/usr/{,local/}{include,src}
+         mkdir -pv $LFS/usr/lib/locale
          mkdir -pv $LFS/usr/local/{bin,sbin,lib}
          mkdir -pv $LFS/{,local/}share/{color,dict,doc,info,locale,man}
-         mkdir -pv $LFS/{,local/}share/{misc,terminfo,zoneinfo} 
+         mkdir -pv $LFS/{,local/}share/{misc,terminfo,zoneinfo}
          mkdir -pv $LFS/{,local/}share/man/man{1..8}
          mkdir -pv $LFS/var/{cache,local,log,mail,opt,spool}
          mkdir -pv $LFS/var/lib/{color,misc,locate}
-         mkdir -pv $LFS/var/tmp 
+         mkdir -pv $LFS/var/tmp
       # Output directory
          mkdir $out
+
+         ls $LFS/usr/lib
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
+      # if ! command -v ldconfig &> /dev/null; then
+      #   echo "Error: ldconfig not found"
+      #   exit 1
+      # fi
+
+       ${pkgs.buildFHSEnv {
          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
          extraBuildCommands = ''
-          rm lib64
+          rm -rf lib64
         '';
-             
+
          extraBwrapArgs = [
             "--unshare-user"
             "--unshare-uts"
@@ -75,7 +82,7 @@ let
             "--dir /out"
             "--dir /build_tools"
             "--bind $LFS/usr/bin /usr/bin"
-            "--bind $LFS/usr/lib /lib"
+            "--bind-try $LFS/usr/lib /lib"
             "--bind $LFS/usr/lib /lib64"
             "--bind $LFS/root /root"
             "--bind $LFS/tools /tools"
@@ -92,8 +99,9 @@ let
             "--setenv PATH /usr/bin:/usr/sbin:/usr/tools/bin"
             "--setenv OUT /out"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
+            "--setenv LC_ALL POSIX"
           ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
 
@@ -125,7 +133,6 @@ let
 
       ln -sv /proc/self/mounts /etc/mtab
 
-            # helix-ignore-start
       cat > /etc/hosts << "EOF"
     127.0.0.1  localhost $(hostname)
     ::1        localhost
@@ -147,7 +154,7 @@ let
     systemd-oom:x:81:81:systemd Out Of Memory Daemon:/:/usr/bin/false
     nobody:x:65534:65534:Unprivileged User:/dev/null:/usr/bin/false
     EOF
-      # helix-ignore-end
+
       cat > /etc/group << "EOF"
     root:x:0:
     bin:x:1:daemon
@@ -184,6 +191,8 @@ let
     nogroup:x:65534:
     EOF
 
+      localedef -i C -f UTF-8 C.UTF-8
+      # The following scripts are wrapped to record chmod, chgrp, chown calls throughout FHS LFS build
       mkdir /build_tools/bin
 
       cat > /build_tools/bin/chmod << "EOF"
@@ -215,7 +224,7 @@ let
       cat > /var/log/btmp
       cat > /var/log/lastlog
       cat > /var/log/faillog
-      cat > /var/log/wtmp   
+      cat > /var/log/wtmp
       # chgrp -v utmp /var/log/lastlog
       chmod -v 664 /var/log/lastlog
       chmod -v 600 /var/log/btmp
@@ -238,6 +247,3 @@ let
   '';
 in
 fhsEnv
-    
-
-

@@ -1,23 +1,27 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-glibc-time-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.glibc;
-      sha256 = "1xx5zcp66gfjsxrads0gkfk6wxif64x3i1k0czmqcif8bk43rik9";
+      sha256 = lfsHashes.glibc;
     };
 
     tzdataSrc = builtins.fetchurl {
-      url = lfsSrcs.tzdata2024a;
-      sha256 = "1qzzxnv059gziwjccsgdys8nba4498qg78cdgad0blnbk92k810d";
+      url = lfsSrcs.time_zone_data;
+      sha256 = lfsHashes.time_zone_data;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -37,21 +41,21 @@ let
       # src folder
       mkdir -pv $LFS/tmp/src
 
-      cp $tzdataSrc ./tzdata2024a.tar.gz
+      cp $tzdataSrc ./tzdata.tar.gz
       cp -rpv $SRC/* $LFS/tmp/src
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -87,7 +91,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -112,8 +116,8 @@ let
     cd /tmp/src
 
     ZONEINFO=/usr/share/zoneinfo
-    
-    tar -xf ./tzdata2024a.tar.gz
+
+    tar -xf ./tzdata.tar.gz
     mkdir -pv $ZONEINFO/{posix,right}
 
     for tz in etcetera southamerica northamerica europe africa antarctica \
@@ -123,13 +127,13 @@ let
         zic -L /dev/null -d $ZONEINFO/posix $tz
         zic -L leapseconds -d $ZONEINFO/right $tz
     done
-    
+
     cp -v zone.tab zone1970.tab iso3166.tab $ZONEINFO
 
     zic -d $ZONEINFO -p America/New_York
-    
-    unset ZONEINFO 
-         
+
+    unset ZONEINFO
+
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
     cp -pvr /usr/* $OUT/usr
     cp -pvr /opt/* $OUT/opt
@@ -147,5 +151,3 @@ let
   '';
 in
 fhsEnv
-          
-    

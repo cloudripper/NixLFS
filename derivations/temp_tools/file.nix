@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 let
   nixpkgs = pkgs;
   stdenvNoCC = nixpkgs.stdenvNoCC;
@@ -17,11 +17,12 @@ let
 
     src = pkgs.fetchurl {
       url = lfsSrcs.file;
-      hash = "sha256-/Jf1ECm7DiyfTjv/79r2ePDgOe6HK53lwAKm0Jx4TYI=";
+      sha256 = lfsHashes.file;
     };
 
     nativeBuildInputs = [ nativePackages ];
     buildInputs = [ cc1 pkgs.gcc ];
+    dontFixup = true;
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -32,6 +33,7 @@ let
       export PATH=$PATH:$LFSTOOLS/bin
       export CONFIG_SITE=$LFS/usr/share/config.site
       export CC1=${cc1}
+
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS
     '';
@@ -43,17 +45,17 @@ let
               --disable-bzlib         \
               --disable-libseccomp    \
               --disable-xzlib         \
-              --disable-zlib 
+              --disable-zlib
           make
       cd ..
 
-      export CC=$LFS_TGT-gcc
-      export CXX=$LFS_TGT-g++
- 
+      # export CC=$LFS_TGT-gcc
+      # export CXX=$LFS_TGT-g++
+
       ./configure                     \
           --prefix=/usr               \
           --host=$LFS_TGT             \
-          --build=$(./config.guess)   
+          --build=$(./config.guess)
     '';
 
     # buildFlags = [ "FILE_COMPILE=$LFS/$sourceRoot/build/src/file" ];

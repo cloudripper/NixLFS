@@ -1,18 +1,22 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-shadow-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.shadow;
-      sha256 = "1ij9w77jh8z6p7m3hbfwzl6p60m8j3pfj18s75bgzmcs2v9k1wbm";
+      sha256 = lfsHashes.shadow;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -36,16 +40,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-        name = "fhs";     
+      ${pkgs.buildFHSEnv {
+        name = "fhs";
 
-      # This is necessary to override default /lib64 symlink set to /lib. 
-      # This symlink prevented binding LFS lib to FHS lib64. 
+      # This is necessary to override default /lib64 symlink set to /lib.
+      # This symlink prevented binding LFS lib to FHS lib64.
       # see setupTargetProfile in buildFHSenv.nix
       # LFS bin interpreter is set to /lib64, so this is important in order
       # for LFS bins to function in FHS env.
       extraBuildCommands = ''
-          rm lib64
+          rm -rf lib64
       '';
 
       extraBwrapArgs = [
@@ -81,7 +85,7 @@ let
           "--setenv SRC /tmp/src"
           "--setenv CONFIG_SITE $LFS/usr/share/config.site"
                   ];
-      }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+      }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -108,7 +112,7 @@ let
     # Wrappers to log/dodge chmod/chown exec in build env
     mkdir /tmp/bin
 
-  
+
     cd /tmp/src
 
     sed -i 's/groups$(EXEEXT) //' src/Makefile.in
@@ -127,10 +131,10 @@ let
                 --with-{b,yes}crypt \
                 --without-libbsd \
                 --with-group-name-max-length=32
-    make
+    make -j$(nproc)
     make exec_prefix=/usr install
     make -C man install-man
-    
+
 
     set +e
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools,log}
@@ -150,5 +154,3 @@ let
   '';
 in
 fhsEnv
-          
-    
