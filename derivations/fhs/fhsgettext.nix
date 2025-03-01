@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc2 }:
+{ pkgs, lfsSrcs, lfsHashes, cc2 }:
 let
   stdenvNoCC = pkgs.stdenvNoCC;
 
@@ -12,12 +12,14 @@ let
       bison
       binutils
       coreutils
+      gnutar
+      xz
     ];
 
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.gettext;
-      sha256 = "1fnaizd2np0vx9d5018w18958pi06b5bh6qnx01lax13bb00icbw";
+      sha256 = lfsHashes.gettext;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
@@ -49,18 +51,18 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
-        
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
+
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
          extraBuildCommands = ''
-          rm lib64
+          rm -rf lib64
         '';
-        
+
           extraBwrapArgs = [
               "--unshare-user"
               "--unshare-uts"
@@ -94,8 +96,9 @@ let
               "--setenv OUT /tmp/out"
               "--setenv SRC /tmp/src"
               "--setenv CONFIG_SITE $LFS/usr/share/config.site"
+              "--setenv LC_ALL POSIX"
           ];
-      }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+      }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -123,7 +126,7 @@ let
     cd /tmp/src
     ./configure --disable-shared
 
-    make
+    make -j$(nproc)
 
     cp -v gettext-tools/src/{msgfmt,msgmerge,xgettext} /usr/bin
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools,build_tools}
@@ -140,9 +143,7 @@ let
     cp -pvr /bin/* $OUT/bin
     cp -pvr /tools/* $OUT/tools
     cp -pvr /media/* $OUT/media
-    cp -pvr /build_tools/* $OUT/build_tools 
+    cp -pvr /build_tools/* $OUT/build_tools
   '';
 in
 fhsEnv
-    
-

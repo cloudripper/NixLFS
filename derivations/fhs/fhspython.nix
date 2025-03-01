@@ -1,6 +1,5 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
-  lib = pkgs.lib;
   stdenv = pkgs.stdenv;
 
 
@@ -12,12 +11,14 @@ let
       zlib
       bison
       coreutils
+      xz
+      gnutar
     ];
 
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.python;
-      sha256 = "0bvnsq8p22x8fr7sjmf3ypf5fdyfmhjh2iz6zsw2b6ifmg30ajxh";
+      sha256 = lfsHashes.python;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
@@ -50,18 +51,18 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-         name = "fhs";     
+      ${pkgs.buildFHSEnv {
+         name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
          extraBuildCommands = ''
-          rm lib64
+          rm -rf lib64
         '';
-        
+
          extraBwrapArgs = [
               "--unshare-user"
               "--unshare-uts"
@@ -96,7 +97,7 @@ let
               "--setenv SRC /tmp/src"
               "--setenv CONFIG_SITE $LFS/usr/share/config.site"
           ];
-      }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+      }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -127,7 +128,7 @@ let
                 --without-ensurepip \
                 || exit 1
 
-    make || exit 1
+    make -j$(nproc) || exit 1
 
     make install || exit 1
 
@@ -149,5 +150,3 @@ let
   '';
 in
 fhsEnv
-    
-

@@ -1,18 +1,22 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-ncurses-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.ncurses;
-      sha256 = "0gc6wvm0hpcdkx7vwpq6jxfd74d7axci68cbl968d3ws79sqx49k";
+      sha256 = lfsHashes.ncurses;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -36,16 +40,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -81,7 +85,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -114,11 +118,12 @@ let
                 --enable-pc-files \
                 --enable-widec \
                 --with-pkg-config-libdir=/usr/lib/pkgconfig
-    make
+
+    make -j$(nproc)
 
     make DESTDIR=$PWD/dest install
-    install -vm755 dest/usr/lib/libncursesw.so.6.4 /usr/lib
-    rm -v dest/usr/lib/libncursesw.so.6.4
+    install -vm755 dest/usr/lib/libncursesw.so.6.5 /usr/lib
+    rm -v dest/usr/lib/libncursesw.so.6.5
     sed -e 's/^#if.*XOPEN.*$/#if 1/' \
         -i dest/usr/include/curses.h
     cp -av dest/* /
@@ -129,7 +134,7 @@ let
     done
 
     ln -sfv libncursesw.so /usr/lib/libcurses.so
-    cp -v -R doc -T /usr/share/doc/ncurses-6.4-20230520
+    cp -v -R doc -T /usr/share/doc/ncurses-6.5
 
 
     set +e
@@ -150,5 +155,3 @@ let
   '';
 in
 fhsEnv
-          
-    

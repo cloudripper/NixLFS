@@ -1,18 +1,22 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-utillinux-env";
 
-    src = builtins.fetchTarball {
-      url = lfsSrcs.util-linux;
-      sha256 = "1y3dvbqn79hiy3j2a5phhdyn9zxx8621xybn1dg9zzl6in74156d";
+    src = pkgs.fetchurl {
+      url = lfsSrcs.util_linux;
+      sha256 = lfsHashes.util_linux;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -36,16 +40,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -81,7 +85,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -106,8 +110,6 @@ let
     set -e
     cd /tmp/src
 
-    sed -i '/test_mkfds/s/^/#/' tests/helpers/Makemodule.am
-
     ./configure --bindir=/usr/bin \
                 --libdir=/usr/lib \
                 --runstatedir=/run \
@@ -119,15 +121,16 @@ let
                 --disable-setpriv \
                 --disable-runuser \
                 --disable-pylibmount \
+                --disable-liblastlog2 \
                 --disable-static \
                 --without-python \
                 ADJTIME_PATH=/var/lib/hwclock/adjtime \
-                --docdir=/usr/share/doc/util-linux-2.39.3 \
- 
-    make
+                --docdir=/usr/share/doc/util-linux-2.40.2 \
+
+    make -j$(nproc)
 
     # make -k check
-    
+
     make install
 
     set +e
@@ -148,5 +151,3 @@ let
   '';
 in
 fhsEnv
-          
-    

@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 let
   nixpkgs = pkgs;
   stdenvNoCC = nixpkgs.stdenvNoCC;
@@ -17,12 +17,12 @@ let
 
     src = pkgs.fetchurl {
       url = lfsSrcs.bash;
-      hash = "sha256-yOMb3Fm2mq/8WzZQmQW6Ply7EnRwkdJ7S5d/B4Vg1bg=";
+      sha256 = lfsHashes.bash;
     };
 
     nativeBuildInputs = [ nativePackages ];
     buildInputs = [ cc1 pkgs.gcc ];
-
+    dontFixup = true;
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -31,7 +31,7 @@ let
       export LFS_TGT=$(uname -m)-lfs-linux-gnu
       export CONFIG_SITE=$LFS/usr/share/config.site
       export PATH=$LFSTOOLS/bin:$PATH
-      export CC1=${cc1} 
+      export CC1=${cc1}
 
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS

@@ -1,24 +1,28 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-bzip2-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.bzip2;
-      sha256 = "1a0pl9gq1iny210b0vkrf4lp0hjcks3cmf19hfvi44fgjcjviy2j";
+      sha256 = lfsHashes.bzip2;
     };
 
 
     patchSrc = builtins.fetchurl {
       url = lfsSrcs.bzip2_patch;
-      sha256 = "00k795xml9a3iqfjafky5nj2s9qd0jxaz0wa5bpizx9ackcvpqrm";
+      sha256 = lfsHashes.bzip2_patch;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "patchPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -47,16 +51,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -92,7 +96,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -115,7 +119,7 @@ let
   setupEnvScript = ''
     export PATH=/build_tools/bin:$PATH
     set -e
-    
+
     cd /tmp/src
 
     patch -Np1 -i ./bzip2-1.0.8-install_docs-1.patch
@@ -124,20 +128,20 @@ let
 
     sed -i "s@(PREFIX)/man@(PREFIX)/share/man@g" Makefile
 
-    make -f Makefile-libbz2_so
+    make -f Makefile-libbz2_so -j$(nproc)
 
     make clean
 
-    make
+    make -j$(nproc)
 
     make PREFIX=/usr install
 
     cp -av libbz2.so.* /usr/lib
-    
+
     ln -sv libbz2.so.1.0.8 /usr/lib/libbz2.so
 
     cp -v bzip2-shared /usr/bin/bzip2
-    
+
     for i in /usr/bin/{bzcat,bunzip2}; do
       ln -sfv bzip2 $i
     done
@@ -145,7 +149,7 @@ let
     rm -fv /usr/lib/libbz2.a
 
     set +e
-      
+
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
     cp -pvr /usr/* $OUT/usr
     cp -pvr /opt/* $OUT/opt
@@ -163,5 +167,3 @@ let
   '';
 in
 fhsEnv
-          
-    

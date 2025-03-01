@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 
 (pkgs.buildFHSEnv {
   name = "my-fhs-environment";

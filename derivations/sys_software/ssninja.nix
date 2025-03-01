@@ -1,18 +1,22 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-ninja-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.ninja;
-      sha256 = "14kshkxdn833nkz2qkzb3w531dcqj6haad90gxj70ic05lb7zx9f";
+      sha256 = lfsHashes.ninja;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -36,16 +40,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -81,7 +85,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -106,10 +110,14 @@ let
     set -e
     cd /tmp/src
 
-    python3 configure.py --bootstrap
+    sed -i '/int Guess/a \
+        int j = 0;\
+        char* jobs = getenv( "NINJAJOBS" );\
+        if ( jobs != NULL ) j = atoi( jobs );\
+        if ( j > 0 ) return j;\
+    ' src/ninja.cc
 
-    ./ninja ninja_test
-    ./ninja_test --gtest_filter=-SubprocessTest.SetWithLots
+    python3 configure.py --bootstrap
 
     install -vm755 ninja /usr/bin/
     install -vDm644 misc/bash-completion /usr/share/bash-completion/completions/ninja
@@ -133,5 +141,3 @@ let
   '';
 in
 fhsEnv
-          
-    

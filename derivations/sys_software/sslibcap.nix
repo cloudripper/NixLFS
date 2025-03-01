@@ -1,18 +1,22 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-libcap-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.libcap;
-      sha256 = "046g8k1clgdsxn1snwm15acviqfarj3rgcnpb3viv0pfd2ca5xwx";
+      sha256 = lfsHashes.libcap;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -36,16 +40,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -81,7 +85,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -108,7 +112,7 @@ let
 
     sed -i '/install -m.*STA/d' libcap/Makefile
 
-    make prefix=/usr lib=lib
+    make prefix=/usr lib=lib -j$(nproc)
 
     make test
 
@@ -132,5 +136,3 @@ let
   '';
 in
 fhsEnv
-          
-    

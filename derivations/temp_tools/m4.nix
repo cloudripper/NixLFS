@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 let
   # nixpkgs = import <nixpkgs> {};
   nixpkgs = pkgs;
@@ -17,12 +17,12 @@ let
     name = "m4-LFS";
     src = pkgs.fetchurl {
       url = lfsSrcs.m4;
-      hash = "sha256-Y67eXG0zttmxNRHNC+LKwEby5w/QoHqpVzoEqCeDr5Y=";
+      sha256 = lfsHashes.m4;
     };
 
     nativeBuildInputs = [ nativePackages ];
     buildInputs = [ cc1 ];
-
+    dontFixup = true;
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''

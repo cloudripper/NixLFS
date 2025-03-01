@@ -1,7 +1,6 @@
-{ pkgs, lfsSrcs, customBinutils }:
+{ pkgs, lfsSrcs, lfsHashes, customBinutils }:
 
 let
-  lib = pkgs.lib;
   stdenv = pkgs.stdenv;
 
   nativePackages = with pkgs; [
@@ -19,21 +18,21 @@ let
 
     src = pkgs.fetchurl {
       url = lfsSrcs.gcc;
-      hash = "sha256-4nXnZEKmBnNBon8Exca4PYYTFEAEwEE1KIY9xrXHQ9o=";
+      sha256 = lfsHashes.gcc;
     };
 
     secondarySrcs = [
       (pkgs.fetchurl {
         url = lfsSrcs.mpfr;
-        sha256 = "277807353a6726978996945af13e52829e3abd7a9a5b7fb2793894e18f1fcbb2";
+        sha256 = lfsHashes.mpfr;
       })
       (pkgs.fetchurl {
         url = lfsSrcs.gmp;
-        sha256 = "a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898";
+        sha256 = lfsHashes.gmp;
       })
       (pkgs.fetchurl {
         url = lfsSrcs.mpc;
-        sha256 = "ab642492f5cf882b74aa0cb730cd410a81edcdbec895183ce930e706c1c759b8";
+        sha256 = lfsHashes.mpc;
       })
     ];
 
@@ -57,7 +56,7 @@ let
     # Adding mpc, gmp, and mpfr to gcc source repo.
     patchPhase = ''
       export SOURCE=/build/$sourceRoot
-            
+
       for secSrc in $secondarySrcs; do
           case $secSrc in
           *.xz)
@@ -72,9 +71,9 @@ let
               ;;
           esac
 
-          srcDir=$(echo $secSrc | sed 's/^[^-]*-\(.*\)\.tar.*/\1/') 
+          srcDir=$(echo $secSrc | sed 's/^[^-]*-\(.*\)\.tar.*/\1/')
           echo "Src: $srcDir"
-          newDir=$(echo $secSrc | cut -d'-' -f2) 
+          newDir=$(echo $secSrc | cut -d'-' -f2)
           echo "newDir: $newDir"
           mv -v ./$srcDir ./$newDir
       done
@@ -91,10 +90,10 @@ let
     # CFLAGS and CXXFLAGS added to dodge string literal warning error.
     configurePhase = ''
       echo "Starting config"
-                    
+
       mkdir -v build
       cd build
-        
+
       ../configure                         \
               --prefix=$LFSTOOLS          \
               --target=$LFS_TGT           \
@@ -116,14 +115,14 @@ let
               --disable-libstdcxx         \
               --enable-languages=c,c++    \
               CFLAGS='-Wno-error=format-security' \
-              CXXFLAGS='-Wno-error=format-security' 
+              CXXFLAGS='-Wno-error=format-security'
     '';
 
     # Path to the GCC source headers is in gcc dir of source folder.
     # Concatenate these to create/populate internal limits.h of crossGcc
     postInstall = ''
       echo "Install complete."
-            
+
       cat $LFS/$sourceRoot/gcc/limitx.h $LFS/$sourceRoot/gcc/glimits.h $LFS/$sourceRoot/gcc/limity.h > \
       $(dirname $($LFSTOOLS/bin/$LFS_TGT-gcc -print-libgcc-file-name))/include/limits.h
 

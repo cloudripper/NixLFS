@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 let
   nixpkgs = pkgs;
   stdenvNoCC = nixpkgs.stdenvNoCC;
@@ -17,11 +17,12 @@ let
 
     src = pkgs.fetchurl {
       url = lfsSrcs.findutils;
-      hash = "sha256-or+4wJ1DZ3DtxZ9Q+kg+eFsWGjt7nVR1c8sIBl/UYv4=";
+      sha256 = lfsHashes.findutils;
     };
 
     nativeBuildInputs = [ nativePackages ];
-    buildInputs = [ cc1 pkgs.gcc ];
+    buildInputs = [ cc1 ];
+    dontFixup = true;
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -31,8 +32,9 @@ let
       export PATH=$PATH:$LFS/usr/bin
       export PATH=$PATH:$LFSTOOLS/bin
       export CONFIG_SITE=$LFS/usr/share/config.site
+      # export CC=$LFSTOOLS/bin/x86_64-lfs-linux-gnu-gcc
       export CC1=${cc1}
- 
+
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS
     '';
@@ -42,7 +44,7 @@ let
       ./configure --prefix=/usr                   \
           --localstatedir=/var/lib/locate         \
           --host=$LFS_TGT                         \
-          --build=$(build-aux/config.guess)           
+          --build=$(build-aux/config.guess)
     '';
 
     installFlags = [ "DESTDIR=$(LFS)" ];

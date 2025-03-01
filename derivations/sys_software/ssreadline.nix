@@ -1,23 +1,22 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-readline-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.readline;
-      sha256 = "0fhh3ya3zl6dzkk45xsmyx65kwmgpds0hidwcl8qw9b4mnaw43dr";
-    };
-
-    patchSrc = builtins.fetchurl {
-      url = lfsSrcs.readline_patch;
-      sha256 = "0qnyp0xrb3j6qmasxqjx5hiyaskmvbr4rgf0sslxdydxqls8n44a";
+      sha256 = lfsHashes.readline;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -36,21 +35,20 @@ let
       mkdir $out
       # src folder
       mkdir -pv $LFS/tmp/src
-      cp -pv $patchSrc ./readline-8.2-upstream_fixes-3.patch   
       cp -rpv $SRC/* $LFS/tmp/src
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -86,7 +84,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -114,18 +112,16 @@ let
     sed -i '/MV.*old/d' Makefile.in
     sed -i '/{OLDSUFF}/c:' support/shlib-install
 
-    patch -Np1 -i ./readline-8.2-upstream_fixes-3.patch
-
     ./configure --prefix=/usr \
                 --disable-static \
                 --with-curses \
-                --docdir=/usr/share/doc/readline-8.2
+                --docdir=/usr/share/doc/readline-8.2.13
 
-    make SHLIB_LIBS="-lncursesw"
+    make SHLIB_LIBS="-lncursesw" -j$(nproc)
 
     make SHLIB_LIBS="-lncursesw" install
 
-    install -v -m644 doc/*.{ps,pdf,html,dvi} /usr/share/doc/readline-8.2
+    install -v -m644 doc/*.{ps,pdf,html,dvi} /usr/share/doc/readline-8.2.13
 
     set +e
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
@@ -144,6 +140,4 @@ let
     cp -pvr /build_tools/* $OUT/build_tools
   '';
 in
-fhsEnv 
-          
-    
+fhsEnv

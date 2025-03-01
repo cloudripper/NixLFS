@@ -1,4 +1,4 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 
 let
   stdenv = pkgs.stdenv;
@@ -13,26 +13,27 @@ let
 
     src = pkgs.fetchurl {
       url = lfsSrcs.gcc;
-      hash = "sha256-4nXnZEKmBnNBon8Exca4PYYTFEAEwEE1KIY9xrXHQ9o=";
+      sha256 = lfsHashes.gcc;
     };
 
     secondarySrcs = [
       (pkgs.fetchurl {
         url = lfsSrcs.mpfr;
-        sha256 = "277807353a6726978996945af13e52829e3abd7a9a5b7fb2793894e18f1fcbb2";
+        sha256 = lfsHashes.mpfr;
       })
       (pkgs.fetchurl {
         url = lfsSrcs.gmp;
-        sha256 = "a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898";
+        sha256 = lfsHashes.gmp;
       })
       (pkgs.fetchurl {
         url = lfsSrcs.mpc;
-        sha256 = "ab642492f5cf882b74aa0cb730cd410a81edcdbec895183ce930e706c1c759b8";
+        sha256 = lfsHashes.mpc;
       })
     ];
 
     nativeBuildInputs = [ nativePackages ];
     buildInputs = [ cc1 pkgs.binutils ];
+    dontFixup = true;
 
     prePhases = "prepEnvironmentPhase";
 
@@ -44,7 +45,9 @@ let
       export PATH=$PATH:$LFS/usr/bin
       export PATH=$PATH:$LFSTOOLS/bin
       export CONFIG_SITE=$LFS/usr/share/config.site
- 
+      # export CC=$LFSTOOLS/bin/$LFS_TGT-gcc
+      # export CXX=$LFSTOOLS/bin/$LFS_TGT-g++
+
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS
     '';
@@ -52,7 +55,7 @@ let
     # Adding mpc, gmp, and mpfr to gcc source repo.
     patchPhase = ''
       export SOURCE=/build/$sourceRoot
-            
+
       for secSrc in $secondarySrcs; do
           case $secSrc in
           *.xz)
@@ -67,9 +70,9 @@ let
               ;;
           esac
 
-          srcDir=$(echo $secSrc | sed 's/^[^-]*-\(.*\)\.tar.*/\1/') 
+          srcDir=$(echo $secSrc | sed 's/^[^-]*-\(.*\)\.tar.*/\1/')
           echo "Src: $srcDir"
-          newDir=$(echo $secSrc | cut -d'-' -f2) 
+          newDir=$(echo $secSrc | cut -d'-' -f2)
           echo "newDir: $newDir"
           mv -v ./$srcDir ./$newDir
       done
@@ -88,16 +91,15 @@ let
 
     # CFLAGS and CXXFLAGS added to dodge string literal warning error.
     configurePhase = ''
-
       echo "Starting config"
       mkdir -v build
       cd build
       ../configure                                        \
-              --prefix=/usr                               \
               --build=$(../config.guess)                  \
               --host=$LFS_TGT                             \
               --target=$LFS_TGT                           \
               LDFLAGS_FOR_TARGET=-L$PWD/$LFS_TGT/libgcc    \
+              --prefix=/usr                               \
               --with-build-sysroot=$LFS         \
               --enable-default-pie        \
               --enable-default-ssp        \
@@ -111,14 +113,14 @@ let
               --disable-libvtv            \
               --enable-languages=c,c++    \
               CFLAGS='-Wno-error=format-security' \
-              CXXFLAGS='-Wno-error=format-security' 
+              CXXFLAGS='-Wno-error=format-security'
     '';
 
     installFlags = [ "DESTDIR=$(LFS)" ];
 
     postInstall = ''
       echo "Install complete."
-            
+
       cp -vr gcc $LFS/usr/bin/cc
       rm -r $LFS/$sourceRoot
       cp -rvp $LFS/* $out/

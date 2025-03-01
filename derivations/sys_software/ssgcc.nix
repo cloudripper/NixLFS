@@ -1,18 +1,22 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-gcc-env";
 
-    src = builtins.fetchTarball {
+    src = pkgs.fetchurl {
       url = lfsSrcs.gcc;
-      sha256 = "004pv5rk9ifl10y8iikq9klzw88cfyg4p71wh1j0xx2d7h2zlmhk";
+      sha256 = lfsHashes.gcc;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+    nativeBuildInputs = with pkgs; [
+      gnutar
+      xz
+    ];
 
     prePhases = "prepEnvironmentPhase";
     prepEnvironmentPhase = ''
@@ -36,16 +40,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -75,14 +79,14 @@ let
             "--bind $LFS/home /home"
               "--bind $LFS/build_tools /build_tools"
             "--clearenv"
-            "--setenv HOME /root" 
+            "--setenv HOME /root"
             "--setenv MAKEFLAGS -j$(nproc)"
             "--setenv PATH /usr/bin:/usr/sbin"
             "--setenv OUT /tmp/out"
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -126,14 +130,7 @@ let
                 --disable-bootstrap \
                 --disable-fixincludes \
                 --with-system-zlib
-    make
-
-    # ulimit -s 32768
-
-    # make -j8 -k check
-
-    # mkdir $OUT/log
-    # cp -pv ../contrib/test_summary $OUT/log
+    make -j$(nproc)
 
     make install
 
@@ -141,9 +138,9 @@ let
 
     ln -sv gcc.1 /usr/share/man/man1/cc.1
 
-    ln -sfv ../../libexec/gcc/$(gcc -dumpmachine)/13.2.0/liblto_plugin.so \
+    ln -sfv ../../libexec/gcc/$(gcc -dumpmachine)/14.2.0/liblto_plugin.so \
             /usr/lib/bfd-plugins/
-    
+
     # These are post install gcc checks
     # echo 'int main(){}' > dummy.c
     # cc dummy.c -v -Wl,--verbose &> dummy.log
@@ -151,7 +148,7 @@ let
 
     mkdir -pv /usr/share/gdb/auto-load/usr/lib
     mv -v /usr/lib/*gdb.py /usr/share/gdb/auto-load/usr/lib
-    
+
     set +e
     mkdir $OUT/{usr,opt,srv,tmp,boot,home,sbin,root,etc,lib,var,bin,tools,media,build_tools}
     cp -pvr /usr/* $OUT/usr
@@ -171,5 +168,3 @@ let
   '';
 in
 fhsEnv
-          
-    

@@ -1,6 +1,5 @@
-{ pkgs, lfsSrcs, cc1 }:
+{ pkgs, lfsSrcs, lfsHashes, cc1 }:
 let
-  # nixpkgs = import <nixpkgs> {};
   nixpkgs = pkgs;
   stdenv = nixpkgs.stdenv;
 
@@ -8,7 +7,7 @@ let
     cmake
     zlib
     bison
-    binutils
+    # binutils
   ];
 
 
@@ -17,7 +16,7 @@ let
 
     src = pkgs.fetchurl {
       url = lfsSrcs.linux;
-      hash = "sha256-9o2fX/wKJPhQaZuGyK6ouGh95zhBWNXtO+3jfeCY1gw=";
+      sha256 = lfsHashes.linux;
     };
 
     nativeBuildInputs = [ nativePackages ];
@@ -31,13 +30,13 @@ let
       export PATH=$LFSTOOLS/bin:$PATH
       export PATH=$LFS/usr/bin:$PATH
       export CONFIG_SITE=$LFS/usr/share/config.site
-
       export CC1=${cc1}
+
       chmod -R u+w ./
-            
+
       cp -r $CC1/* $LFS
       chmod -R u+w $LFS
-            
+
       mkdir -vp $LFS/usr/{bin,lib,sbin} $LFS/{etc,var}
 
       case $(uname -m) in
@@ -49,6 +48,7 @@ let
     configurePhase = ''
       echo "Starting config"
       make mrproper
+
     '';
 
     buildPhase = ''
@@ -57,11 +57,11 @@ let
 
     installPhase = ''
       runHook preInstall
-           
+
       find ./usr/include -type f ! -name '*.h' -delete
 
       mkdir $out
-      cp -rvp ./usr/include $LFS/usr/
+      cp -rvp ./usr/include $LFS/usr
       rm -r $LFS/$sourceRoot
       cp -rvp $LFS/* $out/
 

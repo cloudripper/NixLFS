@@ -1,18 +1,19 @@
-{ pkgs, lfsSrcs, cc2, lib }:
+{ pkgs, lfsSrcs, lfsHashes, cc2, lib }:
 let
   stdenv = pkgs.stdenv;
 
   fhsEnv = stdenv.mkDerivation {
     name = "ss-xz-env";
 
-    src = builtins.fetchTarball {
-      url = lfsSrcs.xz;
-      sha256 = "1pb3gv3vdbllm0kg6bw0qkvp9giqiz599wg3bz082k2zwkm0hjif";
+    src = pkgs.fetchurl {
+      url = lfsSrcs.xz_utils;
+      sha256 = lfsHashes.xz_utils;
     };
 
     phases = [ "prepEnvironmentPhase" "unpackPhase" "configurePhase" "buildPhase" ];
 
     buildInputs = [ cc2 ];
+
 
     nativeBuildInputs = [
       pkgs.gnutar
@@ -42,16 +43,16 @@ let
     '';
 
     buildPhase = ''
-      ${pkgs.buildFHSEnv { 
-          name = "fhs";     
+      ${pkgs.buildFHSEnv {
+          name = "fhs";
 
-        # This is necessary to override default /lib64 symlink set to /lib. 
-        # This symlink prevented binding LFS lib to FHS lib64. 
+        # This is necessary to override default /lib64 symlink set to /lib.
+        # This symlink prevented binding LFS lib to FHS lib64.
         # see setupTargetProfile in buildFHSenv.nix
         # LFS bin interpreter is set to /lib64, so this is important in order
         # for LFS bins to function in FHS env.
         extraBuildCommands = ''
-            rm lib64
+            rm -rf lib64
         '';
 
         extraBwrapArgs = [
@@ -87,7 +88,7 @@ let
             "--setenv SRC /tmp/src"
             "--setenv CONFIG_SITE $LFS/usr/share/config.site"
              ];
-        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript}; 
+        }}/bin/fhs ${pkgs.writeShellScript "setup" setupEnvScript};
     '';
 
     shellHook = ''
@@ -114,9 +115,9 @@ let
 
     ./configure --prefix=/usr \
       --disable-static \
-      --docdir=/usr/share/doc/xz-5.4.6
+      --docdir=/usr/share/doc/xz-5.6.2
 
-    make 
+    make -j$(nproc)
 
     make check
 
@@ -140,5 +141,3 @@ let
   '';
 in
 fhsEnv
-          
-    
