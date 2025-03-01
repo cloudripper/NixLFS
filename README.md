@@ -1,7 +1,6 @@
 # NixLFS: Linux from Scratch... from Nix
+#### Based on [LFS 12.2 - systemd]([url](https://www.linuxfromscratch.org/lfs/downloads/12.2-systemd/)) version
 ![NixLFS Word Cloud](./imgs/NixLFS_wordcloud.png)
-#### Based on LFS 12.2 - systemd version
-
 ## Overview
 This project builds "Linux from Scratch" (LFS) on a Nix-based, x86 system, following the [LFS project](https://www.linuxfromscratch.org)'s guidance. It's an adaptation of LFS 12.2 (systemd version) for a Nix environment.
 
